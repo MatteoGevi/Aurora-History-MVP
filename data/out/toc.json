@@ -1,0 +1,241 @@
+{
+  "doc_title": "These truths.pdf",
+  "nodes": [
+    {
+      "id": "h1-1__title",
+      "title": "Title",
+      "level": 1,
+      "page_start": 2,
+      "page_end": 4,
+      "children": []
+    },
+    {
+      "id": "h1-2__contents",
+      "title": "Contents",
+      "level": 1,
+      "page_start": 5,
+      "page_end": 6,
+      "children": []
+    },
+    {
+      "id": "h1-3__introduction-the-question-stated",
+      "title": "Introduction: The Question Stated",
+      "level": 1,
+      "page_start": 7,
+      "page_end": 18,
+      "children": []
+    },
+    {
+      "id": "h1-4__part-one-the-idea-14921799",
+      "title": "Part One: The Idea (1492–1799)",
+      "level": 1,
+      "page_start": 19,
+      "page_end": 171,
+      "children": [
+        {
+          "id": "h2-4-1__one-the-nature-of-the-past",
+          "title": "One: The Nature of the Past",
+          "level": 2,
+          "page_start": 20,
+          "page_end": 49,
+          "children": []
+        },
+        {
+          "id": "h2-4-2__two-the-rulers-and-the-ruled",
+          "title": "Two: The Rulers and the Ruled",
+          "level": 2,
+          "page_start": 50,
+          "page_end": 90,
+          "children": []
+        },
+        {
+          "id": "h2-4-3__three-of-wars-and-revolutions",
+          "title": "Three: Of Wars and Revolutions",
+          "level": 2,
+          "page_start": 91,
+          "page_end": 128,
+          "children": []
+        },
+        {
+          "id": "h2-4-4__four-the-constitution-of-a-nation",
+          "title": "Four: The Constitution of a Nation",
+          "level": 2,
+          "page_start": 129,
+          "page_end": 171,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "h1-5__part-two-the-people-18001865",
+      "title": "Part Two: The People (1800–1865)",
+      "level": 1,
+      "page_start": 172,
+      "page_end": 331,
+      "children": [
+        {
+          "id": "h2-5-1__five-a-democracy-of-numbers",
+          "title": "Five: A Democracy of Numbers",
+          "level": 2,
+          "page_start": 173,
+          "page_end": 208,
+          "children": []
+        },
+        {
+          "id": "h2-5-2__six-the-soul-and-the-machine",
+          "title": "Six: The Soul and the Machine",
+          "level": 2,
+          "page_start": 209,
+          "page_end": 250,
+          "children": []
+        },
+        {
+          "id": "h2-5-3__seven-of-ships-and-shipwrecks",
+          "title": "Seven: Of Ships and Shipwrecks",
+          "level": 2,
+          "page_start": 251,
+          "page_end": 291,
+          "children": []
+        },
+        {
+          "id": "h2-5-4__eight-the-face-of-battle",
+          "title": "Eight: The Face of Battle",
+          "level": 2,
+          "page_start": 292,
+          "page_end": 331,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "h1-6__part-three-the-state-18661945",
+      "title": "Part Three: The State (1866–1945)",
+      "level": 1,
+      "page_start": 332,
+      "page_end": 540,
+      "children": [
+        {
+          "id": "h2-6-1__nine-of-citizens-persons-and-people",
+          "title": "Nine: Of Citizens, Persons, and People",
+          "level": 2,
+          "page_start": 333,
+          "page_end": 382,
+          "children": []
+        },
+        {
+          "id": "h2-6-2__ten-efficiency-and-the-masses",
+          "title": "Ten: Efficiency and the Masses",
+          "level": 2,
+          "page_start": 383,
+          "page_end": 443,
+          "children": []
+        },
+        {
+          "id": "h2-6-3__eleven-a-constitution-of-the-air",
+          "title": "Eleven: A Constitution of the Air",
+          "level": 2,
+          "page_start": 444,
+          "page_end": 492,
+          "children": []
+        },
+        {
+          "id": "h2-6-4__twelve-the-brutality-of-modernity",
+          "title": "Twelve: The Brutality of Modernity",
+          "level": 2,
+          "page_start": 493,
+          "page_end": 540,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "h1-7__part-four-the-machine-19462016",
+      "title": "Part Four: The Machine (1946–2016)",
+      "level": 1,
+      "page_start": 541,
+      "page_end": 799,
+      "children": [
+        {
+          "id": "h2-7-1__thirteen-a-world-of-knowledge",
+          "title": "Thirteen: A World of Knowledge",
+          "level": 2,
+          "page_start": 542,
+          "page_end": 607,
+          "children": []
+        },
+        {
+          "id": "h2-7-2__fourteen-rights-and-wrongs",
+          "title": "Fourteen: Rights and Wrongs",
+          "level": 2,
+          "page_start": 608,
+          "page_end": 664,
+          "children": []
+        },
+        {
+          "id": "h2-7-3__fifteen-battle-lines",
+          "title": "Fifteen: Battle Lines",
+          "level": 2,
+          "page_start": 665,
+          "page_end": 734,
+          "children": []
+        },
+        {
+          "id": "h2-7-4__sixteen-america-disrupted",
+          "title": "Sixteen: America, Disrupted",
+          "level": 2,
+          "page_start": 735,
+          "page_end": 799,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "h1-8__epilogue-the-question-addressed",
+      "title": "Epilogue: The Question Addressed",
+      "level": 1,
+      "page_start": 800,
+      "page_end": 803,
+      "children": []
+    },
+    {
+      "id": "h1-9__acknowledgments",
+      "title": "Acknowledgments",
+      "level": 1,
+      "page_start": 804,
+      "page_end": 805,
+      "children": []
+    },
+    {
+      "id": "h1-10__notes",
+      "title": "Notes",
+      "level": 1,
+      "page_start": 806,
+      "page_end": 891,
+      "children": []
+    },
+    {
+      "id": "h1-11__illustration-credits",
+      "title": "Illustration Credits",
+      "level": 1,
+      "page_start": 892,
+      "page_end": 897,
+      "children": []
+    },
+    {
+      "id": "h1-12__index",
+      "title": "Index",
+      "level": 1,
+      "page_start": 898,
+      "page_end": 997,
+      "children": []
+    },
+    {
+      "id": "h1-13__about-the-author",
+      "title": "About the Author",
+      "level": 1,
+      "page_start": 998,
+      "page_end": 998,
+      "children": []
+    }
+  ]
+}

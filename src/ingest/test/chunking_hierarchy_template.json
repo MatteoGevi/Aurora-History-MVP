@@ -1,0 +1,19 @@
+[
+    {
+      "id": "h1-1",
+      "title": "Chapter 1: Colonization",
+      "level": 1,
+      "page_start": 3,
+      "page_end": 28,
+      "children": [
+        {
+          "id": "h2-1-1",
+          "title": "1.1 Indigenous Societies",
+          "level": 2,
+          "page_start": 3,
+          "page_end": 9,
+          "children": []
+        }
+      ]
+    }
+  ]

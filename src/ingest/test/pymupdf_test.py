@@ -5,11 +5,9 @@ import fitz
 from langchain_text_splitters import MarkdownHeaderTextSplitter
 import pymupdf4llm
 
-# Project root = three levels up from this file: .../src/ingest/test -> .../Aurora-History-MVP
-ROOT = Path(__file__).resolve().parents[3]
 
-# Exact filename as it exists in /data
-PDF_NAME = "T h e Americ a n Y aw p.pdf"   # NOTE: no extra .pdf at the end
+ROOT = Path(__file__).resolve().parents[3]
+PDF_NAME = "These truths.pdf"
 PDF_PATH = ROOT / "data" / PDF_NAME
 
 # Optional: allow overriding via CLI arg

@@ -1,6 +1,9 @@
 import os
 from supabase import create_client
 
+# Secrets
+WORKER_TOKEN = os.environ["WORKER_TOKEN"]
+
 # DB Connection
 SUPABASE_URL = os.environ["SUPABASE_URL"]
 SUPABASE_SERVICE_ROLE = os.environ["SUPABASE_SERVICE_ROLE_KEY"]

@@ -6,7 +6,7 @@ import fitz
 import pymupdf4llm
 from langchain_text_splitters import MarkdownHeaderTextSplitter
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 PDF_NAME = "These truths.pdf"
 PDF_PATH = ROOT / "data" / PDF_NAME
 OUT_DIR = ROOT / "data" / "out"

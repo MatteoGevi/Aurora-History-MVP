@@ -1,0 +1,8 @@
+{
+    "rubric": {
+      "accuracy": {"0":"incorrect","1":"partially correct","2":"correct"},
+      "evidence": {"0":"no support","1":"some support","2":"strongly supported"},
+      "clarity":  {"0":"unclear","1":"clear"}
+    }
+  }
+  

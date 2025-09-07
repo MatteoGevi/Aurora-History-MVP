@@ -11,3 +11,4 @@ supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
 
 # Models
 EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
+QA_EMBEDDING_MODEL = "text-embedding-3-small"

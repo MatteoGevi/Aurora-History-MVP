@@ -1,240 +1,1501 @@
 {
-  "doc_title": "These truths.pdf",
+  "doc_title": "AI Engineering.pdf",
   "nodes": [
     {
-      "id": "h1-1__title",
-      "title": "Title",
+      "id": "h1-1__cover",
+      "title": "Cover",
       "level": 1,
-      "page_start": 2,
-      "page_end": 4,
+      "page_start": 1,
+      "page_end": 5,
       "children": []
     },
     {
-      "id": "h1-2__contents",
-      "title": "Contents",
+      "id": "h1-2__copyright",
+      "title": "Copyright",
       "level": 1,
-      "page_start": 5,
+      "page_start": 6,
       "page_end": 6,
       "children": []
     },
     {
-      "id": "h1-3__introduction-the-question-stated",
-      "title": "Introduction: The Question Stated",
+      "id": "h1-3__table-of-contents",
+      "title": "Table of Contents",
       "level": 1,
       "page_start": 7,
-      "page_end": 18,
+      "page_end": 12,
       "children": []
     },
     {
-      "id": "h1-4__part-one-the-idea-14921799",
-      "title": "Part One: The Idea (1492–1799)",
+      "id": "h1-4__preface",
+      "title": "Preface",
       "level": 1,
-      "page_start": 19,
-      "page_end": 171,
+      "page_start": 13,
+      "page_end": 24,
       "children": [
         {
-          "id": "h2-4-1__one-the-nature-of-the-past",
-          "title": "One: The Nature of the Past",
+          "id": "h2-4-1__what-this-book-is-about",
+          "title": "What This Book Is About",
+          "level": 2,
+          "page_start": 14,
+          "page_end": 15,
+          "children": []
+        },
+        {
+          "id": "h2-4-2__what-this-book-is-not",
+          "title": "What This Book Is Not",
+          "level": 2,
+          "page_start": 16,
+          "page_end": 16,
+          "children": []
+        },
+        {
+          "id": "h2-4-3__who-this-book-is-for",
+          "title": "Who This Book Is For",
+          "level": 2,
+          "page_start": 17,
+          "page_end": 17,
+          "children": []
+        },
+        {
+          "id": "h2-4-4__navigating-this-book",
+          "title": "Navigating This Book",
+          "level": 2,
+          "page_start": 18,
+          "page_end": 18,
+          "children": []
+        },
+        {
+          "id": "h2-4-5__conventions-used-in-this-book",
+          "title": "Conventions Used in This Book",
+          "level": 2,
+          "page_start": 19,
+          "page_end": 19,
+          "children": []
+        },
+        {
+          "id": "h2-4-6__using-code-examples",
+          "title": "Using Code Examples",
           "level": 2,
           "page_start": 20,
-          "page_end": 49,
+          "page_end": 20,
           "children": []
         },
         {
-          "id": "h2-4-2__two-the-rulers-and-the-ruled",
-          "title": "Two: The Rulers and the Ruled",
+          "id": "h2-4-7__oreilly-online-learning",
+          "title": "O’Reilly Online Learning",
           "level": 2,
-          "page_start": 50,
-          "page_end": 90,
+          "page_start": 21,
+          "page_end": 21,
           "children": []
         },
         {
-          "id": "h2-4-3__three-of-wars-and-revolutions",
-          "title": "Three: Of Wars and Revolutions",
+          "id": "h2-4-8__how-to-contact-us",
+          "title": "How to Contact Us",
           "level": 2,
-          "page_start": 91,
-          "page_end": 128,
+          "page_start": 21,
+          "page_end": 21,
           "children": []
         },
         {
-          "id": "h2-4-4__four-the-constitution-of-a-nation",
-          "title": "Four: The Constitution of a Nation",
+          "id": "h2-4-9__acknowledgments",
+          "title": "Acknowledgments",
           "level": 2,
-          "page_start": 129,
+          "page_start": 22,
+          "page_end": 24,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "h1-5__chapter-1-introduction-to-building-ai-applications-with-foundation-models",
+      "title": "Chapter 1. Introduction to Building AI Applications with Foundation Models",
+      "level": 1,
+      "page_start": 25,
+      "page_end": 72,
+      "children": [
+        {
+          "id": "h2-5-1__the-rise-of-ai-engineering",
+          "title": "The Rise of AI Engineering",
+          "level": 2,
+          "page_start": 26,
+          "page_end": 39,
+          "children": [
+            {
+              "id": "h3-5-1-1__from-language-models-to-large-language-models",
+              "title": "From Language Models to Large Language Models",
+              "level": 3,
+              "page_start": 26,
+              "page_end": 31,
+              "children": []
+            },
+            {
+              "id": "h3-5-1-2__from-large-language-models-to-foundation-models",
+              "title": "From Large Language Models to Foundation Models",
+              "level": 3,
+              "page_start": 32,
+              "page_end": 35,
+              "children": []
+            },
+            {
+              "id": "h3-5-1-3__from-foundation-models-to-ai-engineering",
+              "title": "From Foundation Models to AI Engineering",
+              "level": 3,
+              "page_start": 36,
+              "page_end": 39,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-5-2__foundation-model-use-cases",
+          "title": "Foundation Model Use Cases",
+          "level": 2,
+          "page_start": 40,
+          "page_end": 51,
+          "children": [
+            {
+              "id": "h3-5-2-1__coding",
+              "title": "Coding",
+              "level": 3,
+              "page_start": 44,
+              "page_end": 45,
+              "children": []
+            },
+            {
+              "id": "h3-5-2-2__image-and-video-production",
+              "title": "Image and Video Production",
+              "level": 3,
+              "page_start": 46,
+              "page_end": 46,
+              "children": []
+            },
+            {
+              "id": "h3-5-2-3__writing",
+              "title": "Writing",
+              "level": 3,
+              "page_start": 46,
+              "page_end": 47,
+              "children": []
+            },
+            {
+              "id": "h3-5-2-4__education",
+              "title": "Education",
+              "level": 3,
+              "page_start": 48,
+              "page_end": 49,
+              "children": []
+            },
+            {
+              "id": "h3-5-2-5__conversational-bots",
+              "title": "Conversational Bots",
+              "level": 3,
+              "page_start": 50,
+              "page_end": 50,
+              "children": []
+            },
+            {
+              "id": "h3-5-2-6__information-aggregation",
+              "title": "Information Aggregation",
+              "level": 3,
+              "page_start": 50,
+              "page_end": 50,
+              "children": []
+            },
+            {
+              "id": "h3-5-2-7__data-organization",
+              "title": "Data Organization",
+              "level": 3,
+              "page_start": 51,
+              "page_end": 51,
+              "children": []
+            },
+            {
+              "id": "h3-5-2-8__workflow-automation",
+              "title": "Workflow Automation",
+              "level": 3,
+              "page_start": 52,
+              "page_end": 52,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-5-3__planning-ai-applications",
+          "title": "Planning AI Applications",
+          "level": 2,
+          "page_start": 52,
+          "page_end": 58,
+          "children": [
+            {
+              "id": "h3-5-3-1__use-case-evaluation",
+              "title": "Use Case Evaluation",
+              "level": 3,
+              "page_start": 53,
+              "page_end": 55,
+              "children": []
+            },
+            {
+              "id": "h3-5-3-2__setting-expectations",
+              "title": "Setting Expectations",
+              "level": 3,
+              "page_start": 56,
+              "page_end": 56,
+              "children": []
+            },
+            {
+              "id": "h3-5-3-3__milestone-planning",
+              "title": "Milestone Planning",
+              "level": 3,
+              "page_start": 57,
+              "page_end": 57,
+              "children": []
+            },
+            {
+              "id": "h3-5-3-4__maintenance",
+              "title": "Maintenance",
+              "level": 3,
+              "page_start": 58,
+              "page_end": 58,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-5-4__the-ai-engineering-stack",
+          "title": "The AI Engineering Stack",
+          "level": 2,
+          "page_start": 59,
+          "page_end": 70,
+          "children": [
+            {
+              "id": "h3-5-4-1__three-layers-of-the-ai-stack",
+              "title": "Three Layers of the AI Stack",
+              "level": 3,
+              "page_start": 61,
+              "page_end": 62,
+              "children": []
+            },
+            {
+              "id": "h3-5-4-2__ai-engineering-versus-ml-engineering",
+              "title": "AI Engineering Versus ML Engineering",
+              "level": 3,
+              "page_start": 63,
+              "page_end": 69,
+              "children": []
+            },
+            {
+              "id": "h3-5-4-3__ai-engineering-versus-full-stack-engineering",
+              "title": "AI Engineering Versus Full-Stack Engineering",
+              "level": 3,
+              "page_start": 70,
+              "page_end": 70,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-5-5__summary",
+          "title": "Summary",
+          "level": 2,
+          "page_start": 71,
+          "page_end": 72,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "h1-6__chapter-2-understanding-foundation-models",
+      "title": "Chapter 2. Understanding Foundation Models",
+      "level": 1,
+      "page_start": 73,
+      "page_end": 136,
+      "children": [
+        {
+          "id": "h2-6-1__training-data",
+          "title": "Training Data",
+          "level": 2,
+          "page_start": 74,
+          "page_end": 81,
+          "children": [
+            {
+              "id": "h3-6-1-1__multilingual-models",
+              "title": "Multilingual Models",
+              "level": 3,
+              "page_start": 75,
+              "page_end": 79,
+              "children": []
+            },
+            {
+              "id": "h3-6-1-2__domain-specific-models",
+              "title": "Domain-Specific Models",
+              "level": 3,
+              "page_start": 80,
+              "page_end": 81,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-6-2__modeling",
+          "title": "Modeling",
+          "level": 2,
+          "page_start": 82,
+          "page_end": 101,
+          "children": [
+            {
+              "id": "h3-6-2-1__model-architecture",
+              "title": "Model Architecture",
+              "level": 3,
+              "page_start": 82,
+              "page_end": 90,
+              "children": []
+            },
+            {
+              "id": "h3-6-2-2__model-size",
+              "title": "Model Size",
+              "level": 3,
+              "page_start": 91,
+              "page_end": 101,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-6-3__post-training",
+          "title": "Post-Training",
+          "level": 2,
+          "page_start": 102,
+          "page_end": 111,
+          "children": [
+            {
+              "id": "h3-6-3-1__supervised-finetuning",
+              "title": "Supervised Finetuning",
+              "level": 3,
+              "page_start": 104,
+              "page_end": 106,
+              "children": []
+            },
+            {
+              "id": "h3-6-3-2__preference-finetuning",
+              "title": "Preference Finetuning",
+              "level": 3,
+              "page_start": 107,
+              "page_end": 111,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-6-4__sampling",
+          "title": "Sampling",
+          "level": 2,
+          "page_start": 112,
+          "page_end": 134,
+          "children": [
+            {
+              "id": "h3-6-4-1__sampling-fundamentals",
+              "title": "Sampling Fundamentals",
+              "level": 3,
+              "page_start": 112,
+              "page_end": 113,
+              "children": []
+            },
+            {
+              "id": "h3-6-4-2__sampling-strategies",
+              "title": "Sampling Strategies",
+              "level": 3,
+              "page_start": 114,
+              "page_end": 119,
+              "children": []
+            },
+            {
+              "id": "h3-6-4-3__test-time-compute",
+              "title": "Test Time Compute",
+              "level": 3,
+              "page_start": 120,
+              "page_end": 122,
+              "children": []
+            },
+            {
+              "id": "h3-6-4-4__structured-outputs",
+              "title": "Structured Outputs",
+              "level": 3,
+              "page_start": 123,
+              "page_end": 128,
+              "children": []
+            },
+            {
+              "id": "h3-6-4-5__the-probabilistic-nature-of-ai",
+              "title": "The Probabilistic Nature of AI",
+              "level": 3,
+              "page_start": 129,
+              "page_end": 134,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-6-5__summary",
+          "title": "Summary",
+          "level": 2,
+          "page_start": 135,
+          "page_end": 136,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "h1-7__chapter-3-evaluation-methodology",
+      "title": "Chapter 3. Evaluation Methodology",
+      "level": 1,
+      "page_start": 137,
+      "page_end": 182,
+      "children": [
+        {
+          "id": "h2-7-1__challenges-of-evaluating-foundation-models",
+          "title": "Challenges of Evaluating Foundation Models",
+          "level": 2,
+          "page_start": 138,
+          "page_end": 141,
+          "children": []
+        },
+        {
+          "id": "h2-7-2__understanding-language-modeling-metrics",
+          "title": "Understanding Language Modeling Metrics",
+          "level": 2,
+          "page_start": 142,
+          "page_end": 148,
+          "children": [
+            {
+              "id": "h3-7-2-1__entropy",
+              "title": "Entropy",
+              "level": 3,
+              "page_start": 143,
+              "page_end": 143,
+              "children": []
+            },
+            {
+              "id": "h3-7-2-2__cross-entropy",
+              "title": "Cross Entropy",
+              "level": 3,
+              "page_start": 144,
+              "page_end": 144,
+              "children": []
+            },
+            {
+              "id": "h3-7-2-3__bits-per-character-and-bits-per-byte",
+              "title": "Bits-per-Character and Bits-per-Byte",
+              "level": 3,
+              "page_start": 145,
+              "page_end": 145,
+              "children": []
+            },
+            {
+              "id": "h3-7-2-4__perplexity",
+              "title": "Perplexity",
+              "level": 3,
+              "page_start": 145,
+              "page_end": 145,
+              "children": []
+            },
+            {
+              "id": "h3-7-2-5__perplexity-interpretation-and-use-cases",
+              "title": "Perplexity Interpretation and Use Cases",
+              "level": 3,
+              "page_start": 146,
+              "page_end": 148,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-7-3__exact-evaluation",
+          "title": "Exact Evaluation",
+          "level": 2,
+          "page_start": 149,
+          "page_end": 159,
+          "children": [
+            {
+              "id": "h3-7-3-1__functional-correctness",
+              "title": "Functional Correctness",
+              "level": 3,
+              "page_start": 150,
+              "page_end": 150,
+              "children": []
+            },
+            {
+              "id": "h3-7-3-2__similarity-measurements-against-reference-data",
+              "title": "Similarity Measurements Against Reference Data",
+              "level": 3,
+              "page_start": 151,
+              "page_end": 157,
+              "children": []
+            },
+            {
+              "id": "h3-7-3-3__introduction-to-embedding",
+              "title": "Introduction to Embedding",
+              "level": 3,
+              "page_start": 158,
+              "page_end": 159,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-7-4__ai-as-a-judge",
+          "title": "AI as a Judge",
+          "level": 2,
+          "page_start": 160,
           "page_end": 171,
+          "children": [
+            {
+              "id": "h3-7-4-1__why-ai-as-a-judge",
+              "title": "Why AI as a Judge?",
+              "level": 3,
+              "page_start": 161,
+              "page_end": 161,
+              "children": []
+            },
+            {
+              "id": "h3-7-4-2__how-to-use-ai-as-a-judge",
+              "title": "How to Use AI as a Judge",
+              "level": 3,
+              "page_start": 162,
+              "page_end": 164,
+              "children": []
+            },
+            {
+              "id": "h3-7-4-3__limitations-of-ai-as-a-judge",
+              "title": "Limitations of AI as a Judge",
+              "level": 3,
+              "page_start": 165,
+              "page_end": 168,
+              "children": []
+            },
+            {
+              "id": "h3-7-4-4__what-models-can-act-as-judges",
+              "title": "What Models Can Act as Judges?",
+              "level": 3,
+              "page_start": 169,
+              "page_end": 171,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-7-5__ranking-models-with-comparative-evaluation",
+          "title": "Ranking Models with Comparative Evaluation",
+          "level": 2,
+          "page_start": 172,
+          "page_end": 179,
+          "children": [
+            {
+              "id": "h3-7-5-1__challenges-of-comparative-evaluation",
+              "title": "Challenges of Comparative Evaluation",
+              "level": 3,
+              "page_start": 176,
+              "page_end": 178,
+              "children": []
+            },
+            {
+              "id": "h3-7-5-2__the-future-of-comparative-evaluation",
+              "title": "The Future of Comparative Evaluation",
+              "level": 3,
+              "page_start": 179,
+              "page_end": 179,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-7-6__summary",
+          "title": "Summary",
+          "level": 2,
+          "page_start": 180,
+          "page_end": 182,
           "children": []
         }
       ]
     },
     {
-      "id": "h1-5__part-two-the-people-18001865",
-      "title": "Part Two: The People (1800–1865)",
+      "id": "h1-8__chapter-4-evaluate-ai-systems",
+      "title": "Chapter 4. Evaluate AI Systems",
       "level": 1,
-      "page_start": 172,
-      "page_end": 331,
+      "page_start": 183,
+      "page_end": 234,
       "children": [
         {
-          "id": "h2-5-1__five-a-democracy-of-numbers",
-          "title": "Five: A Democracy of Numbers",
+          "id": "h2-8-1__evaluation-criteria",
+          "title": "Evaluation Criteria",
           "level": 2,
-          "page_start": 173,
-          "page_end": 208,
-          "children": []
+          "page_start": 184,
+          "page_end": 202,
+          "children": [
+            {
+              "id": "h3-8-1-1__domain-specific-capability",
+              "title": "Domain-Specific Capability",
+              "level": 3,
+              "page_start": 185,
+              "page_end": 186,
+              "children": []
+            },
+            {
+              "id": "h3-8-1-2__generation-capability",
+              "title": "Generation Capability",
+              "level": 3,
+              "page_start": 187,
+              "page_end": 195,
+              "children": []
+            },
+            {
+              "id": "h3-8-1-3__instruction-following-capability",
+              "title": "Instruction-Following Capability",
+              "level": 3,
+              "page_start": 196,
+              "page_end": 200,
+              "children": []
+            },
+            {
+              "id": "h3-8-1-4__cost-and-latency",
+              "title": "Cost and Latency",
+              "level": 3,
+              "page_start": 201,
+              "page_end": 202,
+              "children": []
+            }
+          ]
         },
         {
-          "id": "h2-5-2__six-the-soul-and-the-machine",
-          "title": "Six: The Soul and the Machine",
+          "id": "h2-8-2__model-selection",
+          "title": "Model Selection",
           "level": 2,
-          "page_start": 209,
-          "page_end": 250,
-          "children": []
+          "page_start": 203,
+          "page_end": 223,
+          "children": [
+            {
+              "id": "h3-8-2-1__model-selection-workflow",
+              "title": "Model Selection Workflow",
+              "level": 3,
+              "page_start": 203,
+              "page_end": 204,
+              "children": []
+            },
+            {
+              "id": "h3-8-2-2__model-build-versus-buy",
+              "title": "Model Build Versus Buy",
+              "level": 3,
+              "page_start": 205,
+              "page_end": 214,
+              "children": []
+            },
+            {
+              "id": "h3-8-2-3__navigate-public-benchmarks",
+              "title": "Navigate Public Benchmarks",
+              "level": 3,
+              "page_start": 215,
+              "page_end": 223,
+              "children": []
+            }
+          ]
         },
         {
-          "id": "h2-5-3__seven-of-ships-and-shipwrecks",
-          "title": "Seven: Of Ships and Shipwrecks",
+          "id": "h2-8-3__design-your-evaluation-pipeline",
+          "title": "Design Your Evaluation Pipeline",
           "level": 2,
-          "page_start": 251,
-          "page_end": 291,
-          "children": []
+          "page_start": 224,
+          "page_end": 231,
+          "children": [
+            {
+              "id": "h3-8-3-1__step-1-evaluate-all-components-in-a-system",
+              "title": "Step 1. Evaluate All Components in a System",
+              "level": 3,
+              "page_start": 224,
+              "page_end": 225,
+              "children": []
+            },
+            {
+              "id": "h3-8-3-2__step-2-create-an-evaluation-guideline",
+              "title": "Step 2. Create an Evaluation Guideline",
+              "level": 3,
+              "page_start": 226,
+              "page_end": 227,
+              "children": []
+            },
+            {
+              "id": "h3-8-3-3__step-3-define-evaluation-methods-and-data",
+              "title": "Step 3. Define Evaluation Methods and Data",
+              "level": 3,
+              "page_start": 228,
+              "page_end": 231,
+              "children": []
+            }
+          ]
         },
         {
-          "id": "h2-5-4__eight-the-face-of-battle",
-          "title": "Eight: The Face of Battle",
+          "id": "h2-8-4__summary",
+          "title": "Summary",
           "level": 2,
-          "page_start": 292,
-          "page_end": 331,
+          "page_start": 232,
+          "page_end": 234,
           "children": []
         }
       ]
     },
     {
-      "id": "h1-6__part-three-the-state-18661945",
-      "title": "Part Three: The State (1866–1945)",
+      "id": "h1-9__chapter-5-prompt-engineering",
+      "title": "Chapter 5. Prompt Engineering",
       "level": 1,
-      "page_start": 332,
-      "page_end": 540,
+      "page_start": 235,
+      "page_end": 276,
       "children": [
         {
-          "id": "h2-6-1__nine-of-citizens-persons-and-people",
-          "title": "Nine: Of Citizens, Persons, and People",
+          "id": "h2-9-1__introduction-to-prompting",
+          "title": "Introduction to Prompting",
           "level": 2,
-          "page_start": 333,
-          "page_end": 382,
-          "children": []
+          "page_start": 236,
+          "page_end": 243,
+          "children": [
+            {
+              "id": "h3-9-1-1__in-context-learning-zero-shot-and-few-shot",
+              "title": "In-Context Learning: Zero-Shot and Few-Shot",
+              "level": 3,
+              "page_start": 237,
+              "page_end": 238,
+              "children": []
+            },
+            {
+              "id": "h3-9-1-2__system-prompt-and-user-prompt",
+              "title": "System Prompt and User Prompt",
+              "level": 3,
+              "page_start": 239,
+              "page_end": 241,
+              "children": []
+            },
+            {
+              "id": "h3-9-1-3__context-length-and-context-efficiency",
+              "title": "Context Length and Context Efficiency",
+              "level": 3,
+              "page_start": 242,
+              "page_end": 243,
+              "children": []
+            }
+          ]
         },
         {
-          "id": "h2-6-2__ten-efficiency-and-the-masses",
-          "title": "Ten: Efficiency and the Masses",
+          "id": "h2-9-2__prompt-engineering-best-practices",
+          "title": "Prompt Engineering Best Practices",
           "level": 2,
-          "page_start": 383,
-          "page_end": 443,
-          "children": []
+          "page_start": 244,
+          "page_end": 258,
+          "children": [
+            {
+              "id": "h3-9-2-1__write-clear-and-explicit-instructions",
+              "title": "Write Clear and Explicit Instructions",
+              "level": 3,
+              "page_start": 244,
+              "page_end": 246,
+              "children": []
+            },
+            {
+              "id": "h3-9-2-2__provide-sufficient-context",
+              "title": "Provide Sufficient Context",
+              "level": 3,
+              "page_start": 247,
+              "page_end": 247,
+              "children": []
+            },
+            {
+              "id": "h3-9-2-3__break-complex-tasks-into-simpler-subtasks",
+              "title": "Break Complex Tasks into Simpler Subtasks",
+              "level": 3,
+              "page_start": 248,
+              "page_end": 250,
+              "children": []
+            },
+            {
+              "id": "h3-9-2-4__give-the-model-time-to-think",
+              "title": "Give the Model Time to Think",
+              "level": 3,
+              "page_start": 251,
+              "page_end": 252,
+              "children": []
+            },
+            {
+              "id": "h3-9-2-5__iterate-on-your-prompts",
+              "title": "Iterate on Your Prompts",
+              "level": 3,
+              "page_start": 253,
+              "page_end": 253,
+              "children": []
+            },
+            {
+              "id": "h3-9-2-6__evaluate-prompt-engineering-tools",
+              "title": "Evaluate Prompt Engineering Tools",
+              "level": 3,
+              "page_start": 254,
+              "page_end": 256,
+              "children": []
+            },
+            {
+              "id": "h3-9-2-7__organize-and-version-prompts",
+              "title": "Organize and Version Prompts",
+              "level": 3,
+              "page_start": 257,
+              "page_end": 258,
+              "children": []
+            }
+          ]
         },
         {
-          "id": "h2-6-3__eleven-a-constitution-of-the-air",
-          "title": "Eleven: A Constitution of the Air",
+          "id": "h2-9-3__defensive-prompt-engineering",
+          "title": "Defensive Prompt Engineering",
           "level": 2,
-          "page_start": 444,
-          "page_end": 492,
-          "children": []
+          "page_start": 259,
+          "page_end": 274,
+          "children": [
+            {
+              "id": "h3-9-3-1__proprietary-prompts-and-reverse-prompt-engineering",
+              "title": "Proprietary Prompts and Reverse Prompt Engineering",
+              "level": 3,
+              "page_start": 260,
+              "page_end": 261,
+              "children": []
+            },
+            {
+              "id": "h3-9-3-2__jailbreaking-and-prompt-injection",
+              "title": "Jailbreaking and Prompt Injection",
+              "level": 3,
+              "page_start": 262,
+              "page_end": 266,
+              "children": []
+            },
+            {
+              "id": "h3-9-3-3__information-extraction",
+              "title": "Information Extraction",
+              "level": 3,
+              "page_start": 267,
+              "page_end": 271,
+              "children": []
+            },
+            {
+              "id": "h3-9-3-4__defenses-against-prompt-attacks",
+              "title": "Defenses Against Prompt Attacks",
+              "level": 3,
+              "page_start": 272,
+              "page_end": 274,
+              "children": []
+            }
+          ]
         },
         {
-          "id": "h2-6-4__twelve-the-brutality-of-modernity",
-          "title": "Twelve: The Brutality of Modernity",
+          "id": "h2-9-4__summary",
+          "title": "Summary",
           "level": 2,
-          "page_start": 493,
-          "page_end": 540,
+          "page_start": 275,
+          "page_end": 276,
           "children": []
         }
       ]
     },
     {
-      "id": "h1-7__part-four-the-machine-19462016",
-      "title": "Part Four: The Machine (1946–2016)",
+      "id": "h1-10__chapter-6-rag-and-agents",
+      "title": "Chapter 6. RAG and Agents",
       "level": 1,
-      "page_start": 541,
-      "page_end": 799,
+      "page_start": 277,
+      "page_end": 330,
       "children": [
         {
-          "id": "h2-7-1__thirteen-a-world-of-knowledge",
-          "title": "Thirteen: A World of Knowledge",
+          "id": "h2-10-1__rag",
+          "title": "RAG",
           "level": 2,
-          "page_start": 542,
-          "page_end": 607,
+          "page_start": 277,
+          "page_end": 298,
+          "children": [
+            {
+              "id": "h3-10-1-1__rag-architecture",
+              "title": "RAG Architecture",
+              "level": 3,
+              "page_start": 280,
+              "page_end": 280,
+              "children": []
+            },
+            {
+              "id": "h3-10-1-2__retrieval-algorithms",
+              "title": "Retrieval Algorithms",
+              "level": 3,
+              "page_start": 281,
+              "page_end": 290,
+              "children": []
+            },
+            {
+              "id": "h3-10-1-3__retrieval-optimization",
+              "title": "Retrieval Optimization",
+              "level": 3,
+              "page_start": 291,
+              "page_end": 296,
+              "children": []
+            },
+            {
+              "id": "h3-10-1-4__rag-beyond-texts",
+              "title": "RAG Beyond Texts",
+              "level": 3,
+              "page_start": 297,
+              "page_end": 298,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-10-2__agents",
+          "title": "Agents",
+          "level": 2,
+          "page_start": 299,
+          "page_end": 323,
+          "children": [
+            {
+              "id": "h3-10-2-1__agent-overview",
+              "title": "Agent Overview",
+              "level": 3,
+              "page_start": 300,
+              "page_end": 301,
+              "children": []
+            },
+            {
+              "id": "h3-10-2-2__tools",
+              "title": "Tools",
+              "level": 3,
+              "page_start": 302,
+              "page_end": 304,
+              "children": []
+            },
+            {
+              "id": "h3-10-2-3__planning",
+              "title": "Planning",
+              "level": 3,
+              "page_start": 305,
+              "page_end": 321,
+              "children": []
+            },
+            {
+              "id": "h3-10-2-4__agent-failure-modes-and-evaluation",
+              "title": "Agent Failure Modes and Evaluation",
+              "level": 3,
+              "page_start": 322,
+              "page_end": 323,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-10-3__memory",
+          "title": "Memory",
+          "level": 2,
+          "page_start": 324,
+          "page_end": 328,
           "children": []
         },
         {
-          "id": "h2-7-2__fourteen-rights-and-wrongs",
-          "title": "Fourteen: Rights and Wrongs",
+          "id": "h2-10-4__summary",
+          "title": "Summary",
           "level": 2,
-          "page_start": 608,
-          "page_end": 664,
-          "children": []
-        },
-        {
-          "id": "h2-7-3__fifteen-battle-lines",
-          "title": "Fifteen: Battle Lines",
-          "level": 2,
-          "page_start": 665,
-          "page_end": 734,
-          "children": []
-        },
-        {
-          "id": "h2-7-4__sixteen-america-disrupted",
-          "title": "Sixteen: America, Disrupted",
-          "level": 2,
-          "page_start": 735,
-          "page_end": 799,
+          "page_start": 329,
+          "page_end": 330,
           "children": []
         }
       ]
     },
     {
-      "id": "h1-8__epilogue-the-question-addressed",
-      "title": "Epilogue: The Question Addressed",
+      "id": "h1-11__chapter-7-finetuning",
+      "title": "Chapter 7. Finetuning",
       "level": 1,
-      "page_start": 800,
-      "page_end": 803,
+      "page_start": 331,
+      "page_end": 386,
+      "children": [
+        {
+          "id": "h2-11-1__finetuning-overview",
+          "title": "Finetuning Overview",
+          "level": 2,
+          "page_start": 332,
+          "page_end": 334,
+          "children": []
+        },
+        {
+          "id": "h2-11-2__when-to-finetune",
+          "title": "When to Finetune",
+          "level": 2,
+          "page_start": 335,
+          "page_end": 342,
+          "children": [
+            {
+              "id": "h3-11-2-1__reasons-to-finetune",
+              "title": "Reasons to Finetune",
+              "level": 3,
+              "page_start": 335,
+              "page_end": 335,
+              "children": []
+            },
+            {
+              "id": "h3-11-2-2__reasons-not-to-finetune",
+              "title": "Reasons Not to Finetune",
+              "level": 3,
+              "page_start": 336,
+              "page_end": 339,
+              "children": []
+            },
+            {
+              "id": "h3-11-2-3__finetuning-and-rag",
+              "title": "Finetuning and RAG",
+              "level": 3,
+              "page_start": 340,
+              "page_end": 342,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-11-3__memory-bottlenecks",
+          "title": "Memory Bottlenecks",
+          "level": 2,
+          "page_start": 343,
+          "page_end": 355,
+          "children": [
+            {
+              "id": "h3-11-3-1__backpropagation-and-trainable-parameters",
+              "title": "Backpropagation and Trainable Parameters",
+              "level": 3,
+              "page_start": 344,
+              "page_end": 345,
+              "children": []
+            },
+            {
+              "id": "h3-11-3-2__memory-math",
+              "title": "Memory Math",
+              "level": 3,
+              "page_start": 346,
+              "page_end": 348,
+              "children": []
+            },
+            {
+              "id": "h3-11-3-3__numerical-representations",
+              "title": "Numerical Representations",
+              "level": 3,
+              "page_start": 349,
+              "page_end": 351,
+              "children": []
+            },
+            {
+              "id": "h3-11-3-4__quantization",
+              "title": "Quantization",
+              "level": 3,
+              "page_start": 352,
+              "page_end": 355,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-11-4__finetuning-techniques",
+          "title": "Finetuning Techniques",
+          "level": 2,
+          "page_start": 356,
+          "page_end": 384,
+          "children": [
+            {
+              "id": "h3-11-4-1__parameter-efficient-finetuning",
+              "title": "Parameter-Efficient Finetuning",
+              "level": 3,
+              "page_start": 356,
+              "page_end": 370,
+              "children": []
+            },
+            {
+              "id": "h3-11-4-2__model-merging-and-multi-task-finetuning",
+              "title": "Model Merging and Multi-Task Finetuning",
+              "level": 3,
+              "page_start": 371,
+              "page_end": 380,
+              "children": []
+            },
+            {
+              "id": "h3-11-4-3__finetuning-tactics",
+              "title": "Finetuning Tactics",
+              "level": 3,
+              "page_start": 381,
+              "page_end": 384,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-11-5__summary",
+          "title": "Summary",
+          "level": 2,
+          "page_start": 385,
+          "page_end": 386,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "h1-12__chapter-8-dataset-engineering",
+      "title": "Chapter 8. Dataset Engineering",
+      "level": 1,
+      "page_start": 387,
+      "page_end": 428,
+      "children": [
+        {
+          "id": "h2-12-1__data-curation",
+          "title": "Data Curation",
+          "level": 2,
+          "page_start": 389,
+          "page_end": 403,
+          "children": [
+            {
+              "id": "h3-12-1-1__data-quality",
+              "title": "Data Quality",
+              "level": 3,
+              "page_start": 392,
+              "page_end": 392,
+              "children": []
+            },
+            {
+              "id": "h3-12-1-2__data-coverage",
+              "title": "Data Coverage",
+              "level": 3,
+              "page_start": 393,
+              "page_end": 395,
+              "children": []
+            },
+            {
+              "id": "h3-12-1-3__data-quantity",
+              "title": "Data Quantity",
+              "level": 3,
+              "page_start": 396,
+              "page_end": 400,
+              "children": []
+            },
+            {
+              "id": "h3-12-1-4__data-acquisition-and-annotation",
+              "title": "Data Acquisition and Annotation",
+              "level": 3,
+              "page_start": 401,
+              "page_end": 403,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-12-2__data-augmentation-and-synthesis",
+          "title": "Data Augmentation and Synthesis",
+          "level": 2,
+          "page_start": 404,
+          "page_end": 419,
+          "children": [
+            {
+              "id": "h3-12-2-1__why-data-synthesis",
+              "title": "Why Data Synthesis",
+              "level": 3,
+              "page_start": 405,
+              "page_end": 406,
+              "children": []
+            },
+            {
+              "id": "h3-12-2-2__traditional-data-synthesis-techniques",
+              "title": "Traditional Data Synthesis Techniques",
+              "level": 3,
+              "page_start": 407,
+              "page_end": 409,
+              "children": []
+            },
+            {
+              "id": "h3-12-2-3__ai-powered-data-synthesis",
+              "title": "AI-Powered Data Synthesis",
+              "level": 3,
+              "page_start": 410,
+              "page_end": 418,
+              "children": []
+            },
+            {
+              "id": "h3-12-2-4__model-distillation",
+              "title": "Model Distillation",
+              "level": 3,
+              "page_start": 419,
+              "page_end": 419,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-12-3__data-processing",
+          "title": "Data Processing",
+          "level": 2,
+          "page_start": 420,
+          "page_end": 426,
+          "children": [
+            {
+              "id": "h3-12-3-1__inspect-data",
+              "title": "Inspect Data",
+              "level": 3,
+              "page_start": 421,
+              "page_end": 422,
+              "children": []
+            },
+            {
+              "id": "h3-12-3-2__deduplicate-data",
+              "title": "Deduplicate Data",
+              "level": 3,
+              "page_start": 423,
+              "page_end": 424,
+              "children": []
+            },
+            {
+              "id": "h3-12-3-3__clean-and-filter-data",
+              "title": "Clean and Filter Data",
+              "level": 3,
+              "page_start": 425,
+              "page_end": 425,
+              "children": []
+            },
+            {
+              "id": "h3-12-3-4__format-data",
+              "title": "Format Data",
+              "level": 3,
+              "page_start": 425,
+              "page_end": 426,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-12-4__summary",
+          "title": "Summary",
+          "level": 2,
+          "page_start": 427,
+          "page_end": 428,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "h1-13__chapter-9-inference-optimization",
+      "title": "Chapter 9. Inference Optimization",
+      "level": 1,
+      "page_start": 429,
+      "page_end": 472,
+      "children": [
+        {
+          "id": "h2-13-1__understanding-inference-optimization",
+          "title": "Understanding Inference Optimization",
+          "level": 2,
+          "page_start": 430,
+          "page_end": 449,
+          "children": [
+            {
+              "id": "h3-13-1-1__inference-overview",
+              "title": "Inference Overview",
+              "level": 3,
+              "page_start": 430,
+              "page_end": 435,
+              "children": []
+            },
+            {
+              "id": "h3-13-1-2__inference-performance-metrics",
+              "title": "Inference Performance Metrics",
+              "level": 3,
+              "page_start": 436,
+              "page_end": 442,
+              "children": []
+            },
+            {
+              "id": "h3-13-1-3__ai-accelerators",
+              "title": "AI Accelerators",
+              "level": 3,
+              "page_start": 443,
+              "page_end": 449,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-13-2__inference-optimization",
+          "title": "Inference Optimization",
+          "level": 2,
+          "page_start": 450,
+          "page_end": 470,
+          "children": [
+            {
+              "id": "h3-13-2-1__model-optimization",
+              "title": "Model Optimization",
+              "level": 3,
+              "page_start": 450,
+              "page_end": 463,
+              "children": []
+            },
+            {
+              "id": "h3-13-2-2__inference-service-optimization",
+              "title": "Inference Service Optimization",
+              "level": 3,
+              "page_start": 464,
+              "page_end": 470,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-13-3__summary",
+          "title": "Summary",
+          "level": 2,
+          "page_start": 471,
+          "page_end": 472,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "h1-14__chapter-10-ai-engineering-architecture-and-user-feedback",
+      "title": "Chapter 10. AI Engineering Architecture and User Feedback",
+      "level": 1,
+      "page_start": 473,
+      "page_end": 518,
+      "children": [
+        {
+          "id": "h2-14-1__ai-engineering-architecture",
+          "title": "AI Engineering Architecture",
+          "level": 2,
+          "page_start": 473,
+          "page_end": 497,
+          "children": [
+            {
+              "id": "h3-14-1-1__step-1-enhance-context",
+              "title": "Step 1. Enhance Context",
+              "level": 3,
+              "page_start": 474,
+              "page_end": 474,
+              "children": []
+            },
+            {
+              "id": "h3-14-1-2__step-2-put-in-guardrails",
+              "title": "Step 2. Put in Guardrails",
+              "level": 3,
+              "page_start": 475,
+              "page_end": 479,
+              "children": []
+            },
+            {
+              "id": "h3-14-1-3__step-3-add-model-router-and-gateway",
+              "title": "Step 3. Add Model Router and Gateway",
+              "level": 3,
+              "page_start": 480,
+              "page_end": 483,
+              "children": []
+            },
+            {
+              "id": "h3-14-1-4__step-4-reduce-latency-with-caches",
+              "title": "Step 4. Reduce Latency with Caches",
+              "level": 3,
+              "page_start": 484,
+              "page_end": 486,
+              "children": []
+            },
+            {
+              "id": "h3-14-1-5__step-5-add-agent-patterns",
+              "title": "Step 5. Add Agent Patterns",
+              "level": 3,
+              "page_start": 487,
+              "page_end": 488,
+              "children": []
+            },
+            {
+              "id": "h3-14-1-6__monitoring-and-observability",
+              "title": "Monitoring and Observability",
+              "level": 3,
+              "page_start": 489,
+              "page_end": 495,
+              "children": []
+            },
+            {
+              "id": "h3-14-1-7__ai-pipeline-orchestration",
+              "title": "AI Pipeline Orchestration",
+              "level": 3,
+              "page_start": 496,
+              "page_end": 497,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-14-2__user-feedback",
+          "title": "User Feedback",
+          "level": 2,
+          "page_start": 498,
+          "page_end": 515,
+          "children": [
+            {
+              "id": "h3-14-2-1__extracting-conversational-feedback",
+              "title": "Extracting Conversational Feedback",
+              "level": 3,
+              "page_start": 499,
+              "page_end": 503,
+              "children": []
+            },
+            {
+              "id": "h3-14-2-2__feedback-design",
+              "title": "Feedback Design",
+              "level": 3,
+              "page_start": 504,
+              "page_end": 513,
+              "children": []
+            },
+            {
+              "id": "h3-14-2-3__feedback-limitations",
+              "title": "Feedback Limitations",
+              "level": 3,
+              "page_start": 514,
+              "page_end": 515,
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "h2-14-3__summary",
+          "title": "Summary",
+          "level": 2,
+          "page_start": 516,
+          "page_end": 518,
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "h1-15__epilogue",
+      "title": "Epilogue",
+      "level": 1,
+      "page_start": 519,
+      "page_end": 520,
       "children": []
     },
     {
-      "id": "h1-9__acknowledgments",
-      "title": "Acknowledgments",
-      "level": 1,
-      "page_start": 804,
-      "page_end": 805,
-      "children": []
-    },
-    {
-      "id": "h1-10__notes",
-      "title": "Notes",
-      "level": 1,
-      "page_start": 806,
-      "page_end": 891,
-      "children": []
-    },
-    {
-      "id": "h1-11__illustration-credits",
-      "title": "Illustration Credits",
-      "level": 1,
-      "page_start": 892,
-      "page_end": 897,
-      "children": []
-    },
-    {
-      "id": "h1-12__index",
+      "id": "h1-16__index",
       "title": "Index",
       "level": 1,
-      "page_start": 898,
-      "page_end": 997,
+      "page_start": 521,
+      "page_end": 533,
       "children": []
     },
     {
-      "id": "h1-13__about-the-author",
+      "id": "h1-17__about-the-author",
       "title": "About the Author",
       "level": 1,
-      "page_start": 998,
-      "page_end": 998,
+      "page_start": 534,
+      "page_end": 534,
+      "children": []
+    },
+    {
+      "id": "h1-18__colophon",
+      "title": "Colophon",
+      "level": 1,
+      "page_start": 534,
+      "page_end": 535,
       "children": []
     }
   ]

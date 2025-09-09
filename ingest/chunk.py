@@ -1,13 +1,13 @@
 # src/ingest/test/pymupdf_test.py
 from __future__ import annotations
 from pathlib import Path
-import sys, json, re, uuid
+import sys, json, re, uuid, hashlib
 import fitz
 import pymupdf4llm
 from langchain_text_splitters import MarkdownHeaderTextSplitter
 
 ROOT = Path(__file__).resolve().parents[1]
-PDF_NAME = "These truths.pdf"
+PDF_NAME = "AI Engineering.pdf"
 PDF_PATH = ROOT / "data" / PDF_NAME
 OUT_DIR = ROOT / "data" / "out"
 
@@ -24,6 +24,14 @@ def slug(s: str) -> str:
 def norm_title(s: str|None) -> str:
     if not s: return ""
     return re.sub(r"\s+", " ", s.strip())
+
+def read_doc_key(pdf_path: Path) -> str:
+    # Prefer a stable content hash so chunk_ids are reproducible across renames
+    try:
+        data = pdf_path.read_bytes()
+        return hashlib.sha256(data).hexdigest()[:16]
+    except Exception:
+        return pdf_path.name  # fallback
 
 print("Using:", PDF_PATH)
 
@@ -71,19 +79,25 @@ while stack:
     stack[-1]["page_end"] = last_page
     stack.pop()
 
-# Build a lookup: normalized title -> id (prefer deepest first to avoid collisions)
+# Flatten ToC
 def collect_nodes(nodes, bag):
     for n in nodes:
         bag.append(n)
         collect_nodes(n["children"], bag)
+
 flat_nodes = []
 collect_nodes(toc, flat_nodes)
-# Deepest-first mapping helps when h2 & h3 share similar titles
+
+# Deepest-first mapping title -> id (helps when h2 & h3 share similar titles)
 title_to_id = {}
 for n in sorted(flat_nodes, key=lambda x: x["level"], reverse=True):
     key = norm_title(n["title"])
     title_to_id.setdefault(key, n["id"])
 
+# Fast lookups
+id_to_level = {n["id"]: n["level"] for n in flat_nodes}
+
+# Save ToC
 toc_path = OUT_DIR / "toc.json"
 toc_payload = {"doc_title": PDF_PATH.name, "nodes": toc}
 toc_path.write_text(json.dumps(toc_payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -107,22 +121,42 @@ def deepest_section_id(meta) -> str|None:
 def split_paras(text: str):
     return [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
 
+# Stable doc key for chunk_id
+doc_key = read_doc_key(PDF_PATH)
+
 out_jsonl = OUT_DIR / "chunks.paragraphs.jsonl"
+seq_by_section: dict[str,int] = {}  # reset counter per section_id
+
 with out_jsonl.open("w", encoding="utf-8") as f:
     for n in nodes:
-        section_id = deepest_section_id(n.metadata)
-        level_path = " > ".join([norm_title(n.metadata.get("header_h1")),
-                                 norm_title(n.metadata.get("header_h2")),
-                                 norm_title(n.metadata.get("header_h3"))]).strip(" >")
+        section_id = deepest_section_id(n.metadata)  # may be None
+        # Build a readable level_path (still useful for prompting)
+        level_path = " > ".join(
+            [t for t in (
+                norm_title(n.metadata.get("header_h1")),
+                norm_title(n.metadata.get("header_h2")),
+                norm_title(n.metadata.get("header_h3"))
+            ) if t]
+        )
+
+        # Sequence starts at 1 per section_id; if None, bucket under 'root'
+        sid = section_id or "root"
+        seq_by_section[sid] = seq_by_section.get(sid, 0)
+
         for para in split_paras(n.page_content):
+            seq_by_section[sid] += 1
+            chunk_seq = seq_by_section[sid]
+            chunk_id = f"{doc_key}::{sid}::c{chunk_seq:06d}"
+
             row = {
-                "chunk_type": "paragraph",
-                "section_node_id": section_id,     # anchor to ToC; may be None if no match
+                # REQUIRED identity fields
+                "chunk_id":   chunk_id,           # e.g. "ccad82e1fa0d1a9c::h3-...::c000001"
+                "chunk_seq":  chunk_seq,          # per-section sequence
+                "level":      id_to_level.get(section_id) if section_id else None,
+                "text":       para,
+                "doc_key":    doc_key,
                 "level_path": level_path,
-                "header_h1": norm_title(n.metadata.get("header_h1")),
-                "header_h2": norm_title(n.metadata.get("header_h2")),
-                "header_h3": norm_title(n.metadata.get("header_h3")),
-                "content": para,
+                "version":    1
             }
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 

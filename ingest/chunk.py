@@ -4,7 +4,13 @@ from pathlib import Path
 import sys, json, re, uuid, hashlib
 import fitz
 import pymupdf4llm
-from langchain_text_splitters import MarkdownHeaderTextSplitter
+
+# NEW: add splitters
+from langchain_text_splitters import (
+    MarkdownHeaderTextSplitter,
+    SpacyTextSplitter,
+    RecursiveCharacterTextSplitter,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 PDF_NAME = "AI Engineering.pdf"
@@ -105,11 +111,11 @@ print("Wrote:", toc_path)
 
 # ---------- Convert PDF -> Markdown and split headers ----------
 md = pymupdf4llm.to_markdown(str(PDF_PATH))
-splitter = MarkdownHeaderTextSplitter([("#","h1"),("##","h2"),("###","h3")])
-nodes = splitter.split_text(md)
+header_splitter = MarkdownHeaderTextSplitter([("#","h1"),("##","h2"),("###","h3")])
+nodes = header_splitter.split_text(md)
 print("Markdown nodes:", len(nodes))
 
-# ---------- Paragraph chunks linked to ToC ids ----------
+# ---------- Helpers for section mapping ----------
 def deepest_section_id(meta) -> str|None:
     # Try h3 -> h2 -> h1 title matches against native ToC titles
     for k in ("header_h3", "header_h2", "header_h1"):
@@ -118,8 +124,32 @@ def deepest_section_id(meta) -> str|None:
             return title_to_id[t]
     return None
 
-def split_paras(text: str):
-    return [p.strip() for p in re.split(r"\n\s*\n", text) if p.strip()]
+# ---------- Sentence-aware chunking with spaCy ----------
+# Target ~1000 chars per chunk with ~150 overlap (characters)
+TARGET_CHARS = 1000
+OVERLAP_CHARS = 150
+
+def build_spacy_splitter():
+    """
+    Build a SpacyTextSplitter if spaCy model is present; otherwise
+    fall back to a robust RecursiveCharacterTextSplitter.
+    """
+    try:
+        # You must have run: python -m spacy download en_core_web_sm
+        return SpacyTextSplitter(
+            pipeline="en_core_web_sm",
+            chunk_size=TARGET_CHARS,
+            chunk_overlap=OVERLAP_CHARS
+        )
+    except Exception as e:
+        print("[WARN] spaCy not available, using RecursiveCharacterTextSplitter. Error:", e)
+        return RecursiveCharacterTextSplitter(
+            chunk_size=TARGET_CHARS,
+            chunk_overlap=OVERLAP_CHARS,
+            separators=["\n\n", "\n", ". ", " "]
+        )
+
+section_splitter = build_spacy_splitter()
 
 # Stable doc key for chunk_id
 doc_key = read_doc_key(PDF_PATH)
@@ -130,6 +160,7 @@ seq_by_section: dict[str,int] = {}  # reset counter per section_id
 with out_jsonl.open("w", encoding="utf-8") as f:
     for n in nodes:
         section_id = deepest_section_id(n.metadata)  # may be None
+
         # Build a readable level_path (still useful for prompting)
         level_path = " > ".join(
             [t for t in (
@@ -143,7 +174,17 @@ with out_jsonl.open("w", encoding="utf-8") as f:
         sid = section_id or "root"
         seq_by_section[sid] = seq_by_section.get(sid, 0)
 
-        for para in split_paras(n.page_content):
+        # --- NEW: sentence-aware chunking inside each Markdown header node ---
+        # section_splitter.create_documents returns List[Document] with .page_content
+        docs = section_splitter.create_documents([n.page_content])
+        for d in docs:
+            text = d.page_content.strip()
+            if not text:
+                continue
+            # Tiny-chunk guard: merge ultra-short leftovers (rare with Spacy splitter)
+            if len(text) < 100:
+                continue
+
             seq_by_section[sid] += 1
             chunk_seq = seq_by_section[sid]
             chunk_id = f"{doc_key}::{sid}::c{chunk_seq:06d}"
@@ -153,10 +194,15 @@ with out_jsonl.open("w", encoding="utf-8") as f:
                 "chunk_id":   chunk_id,           # e.g. "ccad82e1fa0d1a9c::h3-...::c000001"
                 "chunk_seq":  chunk_seq,          # per-section sequence
                 "level":      id_to_level.get(section_id) if section_id else None,
-                "text":       para,
+
+                # TEXT payload
+                "text":       text,
+
+                # METADATA
                 "doc_key":    doc_key,
                 "level_path": level_path,
-                "version":    1
+                "section_node_id": section_id,    # add explicit section id for retrieval filters
+                "version":    2                   # bumped due to new chunking method
             }
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
 

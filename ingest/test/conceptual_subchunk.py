@@ -1,9 +1,3 @@
-# conceptual_subchunk.py
-# Normalize paragraph chunks to align with toc.json and emit stable chunk_id.
-# - Split ONLY on blank lines (true paragraph breaks), never on '.'.
-# - Uses toc.json to attach section_node_id, section_level, ancestors, level_path.
-# - No doc_id, no header_h* in the output.
-
 from __future__ import annotations
 import argparse, json, os, re, sys, string
 from typing import Dict, Any, Iterable, List, Tuple

@@ -1,17 +1,3 @@
-"""
-faiss_test.py
--------------
-Build a FAISS index from your chunked JSONL and run a query.
-
-Usage:
-    python faiss_test.py --build \
-        --chunks data/out/chunks.paragraphs.jsonl \
-        --index data/out/index.faiss
-
-    python faiss_test.py --query "Why did Aristotle justify slavery?" \
-        --index data/out/index.faiss
-"""
-
 import argparse, json
 import numpy as np
 import faiss

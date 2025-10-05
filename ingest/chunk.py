@@ -18,12 +18,6 @@ if len(sys.argv) > 2:
     OUT_DIR = Path(sys.argv[2]).expanduser().resolve()
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# Optional: silence noisy MuPDF repair logs
-try:
-    fitz.TOOLS.mupdf_display_errors(False)
-except Exception:
-    pass
-
 # ---------------- HELPERS ----------------
 def slug(s: str) -> str:
     s = re.sub(r"\s+", "-", s.strip().lower())

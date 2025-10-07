@@ -2,10 +2,11 @@
 import os, json
 import numpy as np
 import psycopg2
+from pgvector.psycopg2 import register_vector
 from typing import List, Dict
 from sentence_transformers import SentenceTransformer
 
-PG_DSN = os.getenv("PG_DSN")  # e.g., "postgresql://user:pass@host:5432/postgres"
+PG_DSN = os.getenv("PG_DSN")
 
 def load_chunks_from_jsonl(path: str) -> List[Dict]:
     with open(path, "r", encoding="utf-8") as f:

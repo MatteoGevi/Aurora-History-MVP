@@ -4,9 +4,73 @@ import numpy as np
 import psycopg2
 from pgvector.psycopg2 import register_vector
 from typing import List, Dict
+from supabase import Client
 from sentence_transformers import SentenceTransformer
 
-PG_DSN = os.getenv("PG_DSN")
+PG_DSN = os.getenv("SUPABASE_DB_URL")
+
+def insert_toc_nodes(supabase: Client, toc: List[dict]) -> Dict[str, int]:
+    """
+    Insert ToC nodes into database.
+    Returns mapping: {node_id -> db_id}
+    """
+    from ingest.chunk import flatten
+    
+    toc_flat = flatten(toc)
+    toc_records = [{
+        "node_id": n["id"],
+        "title": n["title"],
+        "level": n["level"],
+        "page_start": n["page_start"],
+        "page_end": n["page_end"]
+    } for n in toc_flat]
+    
+    # Upsert (insert or update if exists)
+    supabase.table("toc_nodes").upsert(
+        toc_records, 
+        on_conflict="node_id"
+    ).execute()
+    
+    print(f"✅ Inserted {len(toc_records)} ToC nodes")
+    
+    # Get mapping
+    result = supabase.table("toc_nodes").select("id, node_id").execute()
+    node_map = {r["node_id"]: r["id"] for r in result.data}
+    
+    return node_map
+
+def insert_chunks(
+    supabase: Client,
+    chunks: List[dict],
+    embeddings: List[List[float]],
+    node_map: Dict[str, int],
+    batch_size: int = 100
+):
+    """
+    Insert chunks with embeddings into database.
+    """
+    chunk_records = []
+    
+    for c, emb in zip(chunks, embeddings):
+        chunk_records.append({
+            "chunk_id": c["chunk_id"],
+            "toc_node_id": node_map.get(c["section_id"]),
+            "chunk_seq": c["chunk_seq"],
+            "text": c["text"],
+            "embedding": emb  # Already a list from .tolist()
+        })
+    
+    # Insert in batches
+    total = len(chunk_records)
+    for i in range(0, total, batch_size):
+        batch = chunk_records[i:i+batch_size]
+        supabase.table("chunks").upsert(
+            batch,
+            on_conflict="chunk_id"
+        ).execute()
+        print(f"Inserted batch {i//batch_size + 1}/{(total + batch_size - 1)//batch_size}")
+    
+    print(f"✅ Inserted {total} chunks with embeddings")
 
 def load_chunks_from_jsonl(path: str) -> List[Dict]:
     with open(path, "r", encoding="utf-8") as f:

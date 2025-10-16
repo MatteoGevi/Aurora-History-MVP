@@ -1,167 +1,351 @@
-# ingest.py - Fetch PDF, build ToC, chunk, embed, and insert into Supabase
+# ingest.py - Complete document ingestion pipeline
+"""
+Document ingestion pipeline for PDF processing and vector storage.
+
+This module orchestrates the complete workflow:
+1. Fetch PDF from Supabase Storage
+2. Build Table of Contents
+3. Generate semantic chunks with hierarchy
+4. Generate embeddings
+5. Validate quality
+6. Insert into Supabase vector database
+"""
+
 from __future__ import annotations
-import os, json, hashlib, requests
-from pathlib import Path
-from supabase import create_client, Client
+from typing import Tuple, List
+import numpy as np
+import json
 
-# Chunking procedures
-import pymupdf as fitz
-from sentence_transformers import SentenceTransformer
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+# Import from your existing modules
+from toc_chunk import (
+    fetch_pdf_from_storage,
+    build_toc,
+    chunk_sections_with_hierarchy,
+    flatten
+)
 
-from constants import SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, STORAGE_BUCKET, PDF_FILENAME
+from embedding_import import (
+    generate_embeddings,
+    validate_embeddings,
+    ingest_to_supabase
+)
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+# Import constants - everything we need is already there!
+from constants import (
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY,
+    STORAGE_BUCKET,
+    PDF_FILENAME,
+    EMBEDDING_MODEL,
+    TARGET_CHARS,
+    OVERLAP_CHARS,
+    supabase
+)
 
-# ---------------- FETCH PDF ----------------
-def fetch_pdf() -> bytes:
-    url = f"{SUPABASE_URL}/storage/v1/object/public/{STORAGE_BUCKET}/{PDF_FILENAME}"
-    resp = requests.get(url, timeout=30)
-    resp.raise_for_status()
-    return resp.content
 
-# ---------------- BUILD TOC ----------------
-def build_toc(pdf_bytes: bytes) -> tuple[str, list[dict], int]:
-    doc_key = hashlib.sha256(pdf_bytes).hexdigest()[:16]
+def ingest_document() -> str:
+    """
+    Complete end-to-end ingestion: Process PDF and insert into Supabase.
+    Uses all configuration from constants.py (loaded from .env).
     
-    with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
-        toc_raw = doc.get_toc(simple=True) or []
-        last_page = doc.page_count
-        
-        toc, stack = [], []
-        idx = {1:0,2:0,3:0,4:0,5:0,6:0}
-        
-        def push_node(level: int, title: str, page_start: int):
-            for l in range(level, 7):
-                idx[l] = idx[l] + 1 if l == level else 0
-            path = "-".join(str(idx[l]) for l in range(1,7) if idx[l] > 0)
-            node = {
-                "id": f"h{level}-{path}__{slugify(title)}",
-                "title": title,
-                "level": level,
-                "page_start": page_start,
-                "page_end": None,
-                "children": []
-            }
-            while stack and stack[-1]["level"] >= level:
-                stack[-1]["page_end"] = max(page_start - 1, stack[-1]["page_start"])
-                stack.pop()
-            (toc if not stack else stack[-1]["children"]).append(node)
-            stack.append(node)
-        
-        for lvl, title, p in toc_raw:
-            push_node(int(lvl), title.strip(), int(p))
-        
-        while stack:
-            stack[-1]["page_end"] = last_page
-            stack.pop()
+    Returns:
+        doc_key: Unique document identifier
+    """
+    if not PDF_FILENAME:
+        raise ValueError(
+            "PDF_FILENAME must be set in .env file.\n"
+            "Add: PDF_FILENAME=your-file.pdf"
+        )
     
-    return doc_key, toc, last_page
-
-# ---------------- CHUNK TEXT ----------------
-def chunk_all_sections(pdf_bytes: bytes, toc: list[dict]) -> list[dict]:
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000, chunk_overlap=150,
-        separators=["\n\n", "\n", ". ", " "]
+    print("=" * 80)
+    print("DOCUMENT INGESTION PIPELINE")
+    print("=" * 80)
+    print(f"\nConfiguration:")
+    print(f"  PDF: {PDF_FILENAME}")
+    print(f"  Bucket: {STORAGE_BUCKET}")
+    print(f"  Chunk size: {TARGET_CHARS}")
+    print(f"  Chunk overlap: {OVERLAP_CHARS}")
+    print(f"  Embedding model: {EMBEDDING_MODEL}")
+    print()
+    
+    # Step 1: Fetch PDF
+    print("=" * 80)
+    print("STEP 1/5: FETCHING PDF FROM SUPABASE STORAGE")
+    print("=" * 80)
+    pdf_bytes = fetch_pdf_from_storage(
+        SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE_KEY,
+        STORAGE_BUCKET,
+        PDF_FILENAME
     )
     
-    chunks = []
-    with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
-        for node in flatten_toc(toc):
-            if node["level"] > 3:  # Skip deep nesting
-                continue
-                
-            text = extract_pages(doc, node["page_start"], node["page_end"])
-            if not text:
-                continue
-            
-            docs = splitter.create_documents([text])
-            for i, d in enumerate(docs, 1):
-                if len(d.page_content.strip()) < 100:
-                    continue
-                chunks.append({
-                    "node_id": node["id"],
-                    "title": node["title"],
-                    "level": node["level"],
-                    "page_start": node["page_start"],
-                    "page_end": node["page_end"],
-                    "chunk_seq": i,
-                    "text": d.page_content.strip()
-                })
-    return chunks
+    # Step 2: Build ToC
+    print("\n" + "=" * 80)
+    print("STEP 2/5: BUILDING TABLE OF CONTENTS")
+    print("=" * 80)
+    doc_key, toc, page_count = build_toc(pdf_bytes)
+    toc_flat = flatten(toc)
+    print(f"✅ Document key: {doc_key}")
+    print(f"✅ Found {len(toc_flat)} sections across {page_count} pages")
+    
+    # Step 3: Generate chunks
+    print("\n" + "=" * 80)
+    print("STEP 3/5: CHUNKING DOCUMENT WITH HIERARCHY")
+    print("=" * 80)
+    chunks = chunk_sections_with_hierarchy(
+        pdf_bytes,
+        toc,
+        chunk_size=TARGET_CHARS,
+        chunk_overlap=OVERLAP_CHARS
+    )
+    print(f"✅ Generated {len(chunks)} chunks")
+    
+    # Chunk statistics
+    text_lengths = [len(c['text']) for c in chunks]
+    print(f"\nChunk statistics:")
+    print(f"  Min length: {min(text_lengths)} chars")
+    print(f"  Max length: {max(text_lengths)} chars")
+    print(f"  Mean length: {np.mean(text_lengths):.0f} chars")
+    print(f"  Median length: {np.median(text_lengths):.0f} chars")
+    
+    # Step 4: Generate embeddings
+    print("\n" + "=" * 80)
+    print("STEP 4/5: GENERATING EMBEDDINGS")
+    print("=" * 80)
+    texts = [chunk["text"] for chunk in chunks]
+    embeddings = generate_embeddings(
+        texts,
+        model_name=EMBEDDING_MODEL,
+        show_progress=True
+    )
+    print(f"✅ Generated embeddings with shape: {embeddings.shape}")
+    print(f"✅ Memory usage: {embeddings.nbytes / 1024 / 1024:.2f} MB")
+    
+    # Step 5: Validate embeddings
+    print("\n" + "=" * 80)
+    print("STEP 5/5: VALIDATING EMBEDDINGS")
+    print("=" * 80)
+    
+    # Determine expected dimension based on model
+    expected_dim = 384 if "small" in EMBEDDING_MODEL else (768 if "base" in EMBEDDING_MODEL else None)
+    passed, issues = validate_embeddings(embeddings, expected_dim=expected_dim)
+    
+    if passed:
+        print("✅ All validation checks passed!")
+    else:
+        print("⚠️  Validation warnings detected:")
+        for issue in issues:
+            print(f"   {issue}")
+        
+        # Check for critical issues (ones that should block ingestion)
+        critical_issues = [i for i in issues if "❌" in i]
+        if critical_issues:
+            raise ValueError(f"Critical validation errors found: {critical_issues}")
+        else:
+            print("\n⚠️  Non-critical warnings detected, proceeding with ingestion...")
+    
+    # Insert into Supabase
+    print("\n" + "=" * 80)
+    print("INSERTING INTO SUPABASE")
+    print("=" * 80)
+    
+    ingest_to_supabase(
+        doc_key=doc_key,
+        toc=toc,
+        chunks=chunks,
+        embeddings=embeddings,
+        supabase_client=supabase
+    )
+    
+    print("\n" + "=" * 80)
+    print("🎉 INGESTION COMPLETE!")
+    print("=" * 80)
+    print(f"\n✅ Document '{PDF_FILENAME}' successfully ingested")
+    print(f"✅ Document key: {doc_key}")
+    print(f"✅ Total chunks inserted: {len(chunks)}")
+    print(f"\n💡 You can now query this document using semantic search!")
+    
+    return doc_key
 
-# ---------------- INSERT INTO SUPABASE ----------------
-def ingest_to_supabase(doc_key: str, toc: list[dict], chunks: list[dict]):
-    # 1. Insert ToC nodes
-    toc_flat = flatten_toc(toc)
-    toc_records = [{
-        "node_id": n["id"],
-        "title": n["title"],
-        "level": n["level"],
-        "page_start": n["page_start"],
-        "page_end": n["page_end"]
-    } for n in toc_flat]
-    
-    supabase.table("toc_nodes").upsert(toc_records, on_conflict="node_id").execute()
-    print(f"Inserted {len(toc_records)} ToC nodes")
-    
-    # 2. Get node_id -> db_id mapping
-    result = supabase.table("toc_nodes").select("id, node_id").execute()
-    node_map = {r["node_id"]: r["id"] for r in result.data}
-    
-    # 3. Embed chunks
-    model = SentenceTransformer("BAAI/bge-small-en-v1.5")
-    texts = [c["text"] for c in chunks]
-    embeddings = model.encode(texts, show_progress_bar=True, normalize_embeddings=True)
-    
-    # 4. Insert chunks with embeddings
-    chunk_records = []
-    for c, emb in zip(chunks, embeddings):
-        chunk_records.append({
-            "chunk_id": f"{doc_key}::{c['node_id']}::c{c['chunk_seq']:06d}",
-            "toc_node_id": node_map.get(c["node_id"]),
-            "chunk_seq": c["chunk_seq"],
-            "text": c["text"],
-            "embedding": emb.tolist()
-        })
-    
-    # Insert in batches of 100
-    for i in range(0, len(chunk_records), 100):
-        batch = chunk_records[i:i+100]
-        supabase.table("chunks").upsert(batch, on_conflict="chunk_id").execute()
-        print(f"Inserted batch {i//100 + 1}")
-    
-    print(f"Done! Total chunks: {len(chunk_records)}")
 
-# ---------------- HELPERS ----------------
-def slugify(s: str) -> str:
-    import re
-    s = re.sub(r'\s+', '-', s.lower().strip())
-    return re.sub(r'[^a-z0-9-]', '', s)[:80]
+def analyze_document() -> dict:
+    """
+    Process and analyze document WITHOUT inserting into Supabase.
+    Useful for testing chunking and embedding quality before ingestion.
+    Saves analysis files for inspection.
+    
+    Returns:
+        Dictionary with analysis results
+    """
+    if not PDF_FILENAME:
+        raise ValueError("PDF_FILENAME must be set in .env file")
+    
+    print("=" * 80)
+    print("DOCUMENT ANALYSIS (NO DATABASE INSERTION)")
+    print("=" * 80)
+    print(f"\nAnalyzing: {PDF_FILENAME}\n")
+    
+    # Step 1: Fetch PDF
+    print("Step 1: Fetching PDF...")
+    pdf_bytes = fetch_pdf_from_storage(
+        SUPABASE_URL,
+        SUPABASE_SERVICE_ROLE_KEY,
+        STORAGE_BUCKET,
+        PDF_FILENAME
+    )
+    
+    # Step 2: Build ToC
+    print("\nStep 2: Building ToC...")
+    doc_key, toc, page_count = build_toc(pdf_bytes)
+    toc_flat = flatten(toc)
+    print(f"✅ Found {len(toc_flat)} sections")
+    
+    # Save ToC
+    toc_file = f"analysis_toc_{doc_key}.json"
+    with open(toc_file, 'w', encoding='utf-8') as f:
+        json.dump({"doc_key": doc_key, "toc": toc}, f, indent=2, ensure_ascii=False)
+    print(f"💾 Saved ToC to: {toc_file}")
+    
+    # Step 3: Generate chunks
+    print("\nStep 3: Generating chunks...")
+    chunks = chunk_sections_with_hierarchy(
+        pdf_bytes,
+        toc,
+        chunk_size=TARGET_CHARS,
+        chunk_overlap=OVERLAP_CHARS
+    )
+    print(f"✅ Generated {len(chunks)} chunks")
+    
+    # Save chunks
+    chunks_file = f"analysis_chunks_{doc_key}.json"
+    with open(chunks_file, 'w', encoding='utf-8') as f:
+        json.dump(chunks, f, indent=2, ensure_ascii=False)
+    print(f"💾 Saved chunks to: {chunks_file}")
+    
+    # Step 4: Generate embeddings
+    print("\nStep 4: Generating embeddings...")
+    texts = [chunk["text"] for chunk in chunks]
+    embeddings = generate_embeddings(
+        texts,
+        model_name=EMBEDDING_MODEL,
+        show_progress=True
+    )
+    
+    # Step 5: Validate
+    print("\nStep 5: Validating embeddings...")
+    expected_dim = 384 if "small" in EMBEDDING_MODEL else (768 if "base" in EMBEDDING_MODEL else None)
+    passed, issues = validate_embeddings(embeddings, expected_dim=expected_dim)
+    
+    if not passed:
+        print("⚠️  Validation issues:")
+        for issue in issues:
+            print(f"   {issue}")
+    
+    # Detailed analysis
+    print("\n" + "=" * 80)
+    print("DETAILED ANALYSIS")
+    print("=" * 80)
+    
+    # Text statistics
+    text_lengths = [len(c['text']) for c in chunks]
+    print(f"\n📊 Text Length Statistics:")
+    print(f"   Min: {min(text_lengths)} chars")
+    print(f"   Max: {max(text_lengths)} chars")
+    print(f"   Mean: {np.mean(text_lengths):.0f} chars")
+    print(f"   Median: {np.median(text_lengths):.0f} chars")
+    
+    # Similarity analysis
+    print(f"\n🔗 Similarity Analysis:")
+    sample_size = min(100, len(embeddings))
+    sample_emb = embeddings[:sample_size]
+    sim_matrix = sample_emb @ sample_emb.T
+    np.fill_diagonal(sim_matrix, 0)
+    
+    print(f"   Sample size: {sample_size} chunks")
+    print(f"   Min similarity: {sim_matrix.min():.4f}")
+    print(f"   Max similarity: {sim_matrix.max():.4f}")
+    print(f"   Mean similarity: {sim_matrix.mean():.4f}")
+    
+    # Check for duplicates
+    near_duplicates = np.sum(sim_matrix > 0.95)
+    exact_duplicates = np.sum(sim_matrix > 0.9999)
+    print(f"   Near-duplicates (>0.95): {near_duplicates}")
+    print(f"   Exact duplicates (>0.9999): {exact_duplicates}")
+    
+    if exact_duplicates > 0:
+        print(f"\n   ⚠️  WARNING: Found {exact_duplicates} exact duplicate embeddings!")
+    
+    # Level distribution
+    print(f"\n📈 Hierarchy Distribution:")
+    from collections import Counter
+    level_counts = Counter(c['level'] for c in chunks)
+    for level in sorted(level_counts.keys()):
+        count = level_counts[level]
+        pct = (count / len(chunks)) * 100
+        print(f"   H{level}: {count:4d} chunks ({pct:5.1f}%)")
+    
+    # Save analysis summary
+    analysis = {
+        "doc_key": doc_key,
+        "pdf_filename": PDF_FILENAME,
+        "total_sections": len(toc_flat),
+        "total_chunks": len(chunks),
+        "embedding_shape": list(embeddings.shape),
+        "embedding_model": EMBEDDING_MODEL,
+        "chunk_size": TARGET_CHARS,
+        "chunk_overlap": OVERLAP_CHARS,
+        "text_length_stats": {
+            "min": int(min(text_lengths)),
+            "max": int(max(text_lengths)),
+            "mean": float(np.mean(text_lengths)),
+            "median": float(np.median(text_lengths))
+        },
+        "similarity_stats": {
+            "min": float(sim_matrix.min()),
+            "max": float(sim_matrix.max()),
+            "mean": float(sim_matrix.mean()),
+            "near_duplicates": int(near_duplicates),
+            "exact_duplicates": int(exact_duplicates)
+        },
+        "level_distribution": {f"H{k}": v for k, v in level_counts.items()},
+        "validation_passed": passed,
+        "validation_issues": issues
+    }
+    
+    analysis_file = f"analysis_summary_{doc_key}.json"
+    with open(analysis_file, 'w', encoding='utf-8') as f:
+        json.dump(analysis, f, indent=2, ensure_ascii=False)
+    print(f"\n💾 Saved analysis summary to: {analysis_file}")
+    
+    print("\n" + "=" * 80)
+    print("✅ ANALYSIS COMPLETE")
+    print("=" * 80)
+    print(f"\n📁 Files saved:")
+    print(f"   • {toc_file}")
+    print(f"   • {chunks_file}")
+    print(f"   • {analysis_file}")
+    print(f"\n💡 Review the analysis, then run ingest_document() to insert into database")
+    
+    return analysis
 
-def flatten_toc(nodes: list[dict]) -> list[dict]:
-    result = []
-    def walk(n):
-        result.append(n)
-        for c in n.get("children", []):
-            walk(c)
-    for n in nodes:
-        walk(n)
-    return result
 
-def extract_pages(doc, start: int, end: int) -> str:
-    parts = [doc.load_page(p-1).get_text("text") for p in range(start, end+1)]
-    return "\n".join(parts).strip()
-
+# CLI entry point
 if __name__ == "__main__":
-    print("Fetching PDF...")
-    pdf_bytes = fetch_pdf()
+    import sys
     
-    print("Building ToC...")
-    doc_key, toc, pages = build_toc(pdf_bytes)
-    
-    print(f"Chunking {pages} pages...")
-    chunks = chunk_all_sections(pdf_bytes, toc)
-    
-    print("Ingesting to Supabase...")
-    ingest_to_supabase(doc_key, toc, chunks)
+    if len(sys.argv) > 1 and sys.argv[1] == "--analyze":
+        print("🔍 Running in ANALYSIS-ONLY mode\n")
+        try:
+            result = analyze_document()
+            print(f"\n✅ Analysis complete!")
+        except Exception as e:
+            print(f"\n❌ Error during analysis: {e}")
+            raise
+    else:
+        print("🚀 Running FULL INGESTION\n")
+        try:
+            doc_key = ingest_document()
+            print(f"\n✅ Ingestion complete! Doc key: {doc_key}")
+        except Exception as e:
+            print(f"\n❌ Error during ingestion: {e}")
+            raise

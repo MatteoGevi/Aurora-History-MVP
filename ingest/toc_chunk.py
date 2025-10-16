@@ -3,7 +3,37 @@ from __future__ import annotations
 import hashlib, re, requests, os
 import pymupdf as fitz
 from typing import List, Dict, Tuple
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter, SpacyTextSplitter
+
+# ============ PDF FETCHING ============
+
+def fetch_pdf_from_storage(
+    supabase_url: str,
+    service_role_key: str,
+    bucket: str,
+    filename: str
+) -> bytes:
+    """
+    Fetch PDF from Supabase Storage using service_role key.
+    Works for private buckets.
+    """
+    auth_url = f"{supabase_url}/storage/v1/object/authenticated/{bucket}/{filename}"
+    
+    headers = {
+        "apikey": service_role_key,
+        "Authorization": f"Bearer {service_role_key}"
+    }
+    
+    print(f"📥 Fetching PDF...")
+    resp = requests.get(auth_url, headers=headers, timeout=30)
+    resp.raise_for_status()
+    
+    pdf_bytes = resp.content
+    if not pdf_bytes.startswith(b'%PDF'):
+        raise ValueError("Downloaded file is not a valid PDF")
+    
+    print(f"✅ Downloaded {len(pdf_bytes):,} bytes ({len(pdf_bytes) / 1024 / 1024:.2f} MB)")
+    return pdf_bytes
 
 # ============ UTILITY FUNCTIONS ============
 
@@ -59,27 +89,21 @@ def descendants(node: dict) -> List[dict]:
     walk(node)
     return out
 
-# ============ PDF FETCHING ============
-
-def fetch_pdf_from_storage(
-    supabase_url: str, 
-    service_key: str,  # Use SERVICE_ROLE key, not anon key
-    bucket: str, 
-    filename: str
-) -> bytes:
-    """
-    Fetch PDF from private Supabase Storage bucket.
-    Requires service_role key for backend operations.
-    """
-    supabase = create_client(supabase_url, service_key)
+def get_ancestor_titles(node: dict, flat_nodes: List[dict]) -> List[Tuple[int, str]]:
+    """Get all ancestor section titles with their levels."""
+    ancestors = []
+    current_level = node["level"]
+    current_page = node["page_start"]
     
-    try:
-        # Download from private bucket
-        res = supabase.storage.from_(bucket).download(filename)
-        print(f"✅ Downloaded {len(res)} bytes")
-        return res
-    except Exception as e:
-        raise RuntimeError(f"Failed to fetch PDF from private bucket: {e}")
+    # Find all ancestors by walking backwards through nodes
+    for n in reversed(flat_nodes):
+        if n["page_start"] <= current_page and n["level"] < current_level:
+            ancestors.insert(0, (n["level"], n["title"]))
+            current_level = n["level"]
+            if current_level == 1:
+                break
+    
+    return ancestors
 
 # ============ TOC BUILDING ============
 
@@ -174,20 +198,23 @@ def chapter_intervals(chapter: dict) -> List[Tuple[int, int, dict]]:
     
     return sorted(work, key=lambda x: (x[0], x[1]))
 
-def chunk_sections(
+def chunk_sections_with_hierarchy(
     pdf_bytes: bytes,
     toc: List[dict],
-    chunk_size: int = 1000,
-    overlap: int = 150
+    chunk_size: int = 2000,
+    chunk_overlap: int = 50
 ) -> List[dict]:
     """
-    Chunk all H1 sections and their children.
-    Returns list of chunk dicts.
+    Chunk all H1 sections and their children using SpaCy sentence-aware splitting
+    with full hierarchical markdown headers for better semantic search.
+    
+    Returns list of chunk dicts with 'hierarchy' field included.
     """
-    splitter = RecursiveCharacterTextSplitter(
+    # Use SpaCy for sentence-aware splitting
+    splitter = SpacyTextSplitter(
+        pipeline="en_core_web_sm",
         chunk_size=chunk_size,
-        chunk_overlap=overlap,
-        separators=["\n\n", "\n", ". ", " "]
+        chunk_overlap=chunk_overlap
     )
     
     chunks = []
@@ -207,15 +234,34 @@ def chunk_sections(
                 if not text:
                     continue
                 
-                # Window text to avoid SpaCy limits
+                # Build full header hierarchy
+                ancestors = get_ancestor_titles(sec, flat_nodes)
+                header_parts = []
+                
+                # Add ancestor headers
+                for level, title in ancestors:
+                    header_parts.append(f"{'#' * level} {title}")
+                
+                # Add current section header
+                header_parts.append(f"{'#' * sec['level']} {sec['title']}")
+                
+                header = "\n\n".join(header_parts) + "\n\n"
+                
+                # Window text to avoid SpaCy limits (E088 error)
                 docs = []
                 for slab in windows(text, size=200_000, overlap=1_000):
-                    docs.extend(splitter.create_documents([slab]))
+                    # Combine header with content for first window only
+                    if not docs:
+                        windowed_text = header + slab
+                    else:
+                        windowed_text = slab
+                    
+                    docs.extend(splitter.create_documents([windowed_text]))
                 
                 sid = sec["id"]
                 seq_by_section[sid] = seq_by_section.get(sid, 0)
                 
-                for d in docs:
+                for i, d in enumerate(docs):
                     chunk_text = (d.page_content or "").strip()
                     if len(chunk_text) < 100:
                         continue
@@ -229,7 +275,7 @@ def chunk_sections(
                         "level": sec["level"],
                         "page_start": page_start,
                         "page_end": page_end,
-                        "text": chunk_text
+                        "text": chunk_text,
                     })
     
     return chunks

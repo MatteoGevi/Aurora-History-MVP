@@ -1,513 +1,372 @@
-"""
-Retrieval module using Supabase client for pgvector queries.
-Reuses existing pipeline components for consistency.
-"""
-
 from typing import List, Dict, Optional, Tuple
 import numpy as np
+from sentence_transformers import SentenceTransformer
 
-# Reuse existing pipeline components
-from constants import supabase, EMBEDDING_MODEL
-from embedding_import import generate_embeddings
-from toc_chunk import flatten, get_ancestor_titles
+# Import from your config
+from config.constants import supabase, EMBEDDING_MODEL
+
+print(f"🤖 Loading embedding model: {EMBEDDING_MODEL}")
+_model = SentenceTransformer(EMBEDDING_MODEL)
+print(f"✓ Model loaded (dimension: {_model.get_sentence_embedding_dimension()})")
+
+def embed_query(text: str) -> List[float]:
+    """
+    Generate embedding for a query string.
+    
+    Args:
+        text: Query text to embed
+        
+    Returns:
+        List of floats representing the embedding
+    """
+    embedding = _model.encode(text, normalize_embeddings=True)
+    return embedding.tolist()
 
 
-class DocumentRetriever:
-    """Handle vector similarity search and retrieval from Supabase"""
+def search(
+    query: str,
+    top_k: int = 5,
+    similarity_threshold: float = 0.3
+) -> List[Dict]:
+    """
+    Basic semantic search - your main retrieval function.
     
-    def __init__(self, model_name: str = EMBEDDING_MODEL):
-        """
-        Initialize retriever with embedding model.
-        Uses the SAME model from your ingestion pipeline for consistency.
+    Args:
+        query: What the student is asking about or being tested on
+        top_k: How many relevant chunks to retrieve
+        similarity_threshold: Minimum similarity score (0-1)
         
-        Args:
-            model_name: Hugging Face model name (defaults to EMBEDDING_MODEL from constants)
-        """
-        from sentence_transformers import SentenceTransformer
+    Returns:
+        List of relevant text chunks with metadata
         
-        print(f"🤖 Loading embedding model: {model_name}")
-        self.model = SentenceTransformer(model_name)
-        self.embedding_dim = self.model.get_sentence_embedding_dimension()
-        print(f"✓ Model loaded (dimension: {self.embedding_dim})")
+    Example:
+        >>> results = search("What caused the American Revolution?", top_k=3)
+        >>> for r in results:
+        ...     print(r['text'][:100])
+    """
+    query_embedding = embed_query(query)
     
-    def embed_query(self, text: str) -> List[float]:
-        """
-        Generate embedding for query text.
-        Reuses generate_embeddings() from pipeline for consistency.
-        """
-        # Use your existing embedding function with single text
-        embedding = generate_embeddings(
-            texts=[text],
-            model_name=EMBEDDING_MODEL,
-            batch_size=1,
-            normalize=True,
-            show_progress=False
-        )
-        return embedding[0].tolist()
-    
-    def semantic_search(
-        self,
-        query: str,
-        top_k: int = 5,
-        similarity_threshold: float = 0.3
-    ) -> List[Dict]:
-        """
-        Basic semantic search using cosine similarity
-        
-        Args:
-            query: Search query text
-            top_k: Number of results to return
-            similarity_threshold: Minimum similarity score (0-1)
-        
-        Returns:
-            List of matching chunks with metadata
-        """
-        query_embedding = self.embed_query(query)
-        
-        # Supabase RPC call for vector similarity search
-        response = supabase.rpc(
-            'match_chunks',
-            {
-                'query_embedding': query_embedding,
-                'match_threshold': similarity_threshold,
-                'match_count': top_k
-            }
-        ).execute()
-        
-        return response.data if response.data else []
-    
-    def search_with_context(
-        self,
-        query: str,
-        top_k: int = 3,
-        context_window: int = 2
-    ) -> List[Dict]:
-        """
-        Retrieve chunks with surrounding context.
-        Uses chunk_seq to get neighboring chunks from same section.
-        
-        Args:
-            query: Search query
-            top_k: Number of initial matches
-            context_window: Number of chunks before/after to include
-        
-        Returns:
-            List of results with context chunks
-        """
-        # Get initial matches
-        initial_results = self.semantic_search(query, top_k=top_k)
-        
-        if not initial_results:
-            return []
-        
-        enriched_results = []
-        
-        for result in initial_results:
-            chunk_seq = result['chunk_seq']
-            toc_node_id = result['toc_node_id']
-            
-            # Get surrounding chunks from same section
-            context_response = supabase.from_('chunks') \
-                .select('chunk_id, text, chunk_seq, section_title, page_start, page_end') \
-                .eq('toc_node_id', toc_node_id) \
-                .gte('chunk_seq', chunk_seq - context_window) \
-                .lte('chunk_seq', chunk_seq + context_window) \
-                .order('chunk_seq') \
-                .execute()
-            
-            # Mark which chunk is the match
-            context_chunks = []
-            for chunk in context_response.data:
-                chunk['position'] = 'match' if chunk['chunk_seq'] == chunk_seq else \
-                                   'before' if chunk['chunk_seq'] < chunk_seq else 'after'
-                context_chunks.append(chunk)
-            
-            enriched_results.append({
-                'match': result,
-                'context': context_chunks
-            })
-        
-        return enriched_results
-    
-    def get_full_section_context(self, chunk_id: str) -> Dict:
-        """
-        Get a chunk with its full ToC hierarchy context.
-        Uses get_ancestor_titles logic from toc_chunk.py
-        
-        Args:
-            chunk_id: ID of the chunk to contextualize
-            
-        Returns:
-            Dict with chunk, ancestors, and siblings
-        """
-        # Get the chunk
-        chunk_response = supabase.from_('chunks') \
-            .select('*, toc_nodes!inner(*)') \
-            .eq('chunk_id', chunk_id) \
-            .single() \
-            .execute()
-        
-        if not chunk_response.data:
-            return None
-        
-        chunk = chunk_response.data
-        toc_node = chunk['toc_nodes']
-        
-        # Get all ToC nodes for hierarchy
-        all_toc = supabase.from_('toc_nodes') \
-            .select('*') \
-            .order('page_start') \
-            .execute()
-        
-        flat_toc = all_toc.data
-        
-        # Build hierarchy using your existing function logic
-        ancestors = []
-        current_level = toc_node['level']
-        current_page = toc_node['page_start']
-        
-        for n in reversed(flat_toc):
-            if n['page_start'] <= current_page and n['level'] < current_level:
-                ancestors.insert(0, {
-                    'level': n['level'],
-                    'title': n['title'],
-                    'node_id': n['node_id']
-                })
-                current_level = n['level']
-                if current_level == 1:
-                    break
-        
-        # Get sibling chunks from same section
-        siblings_response = supabase.from_('chunks') \
-            .select('chunk_id, chunk_seq, text') \
-            .eq('toc_node_id', chunk['toc_node_id']) \
-            .order('chunk_seq') \
-            .execute()
-        
-        return {
-            'chunk': chunk,
-            'section': toc_node,
-            'ancestors': ancestors,
-            'siblings': siblings_response.data,
-            'hierarchy_path': ' > '.join(a['title'] for a in ancestors) + f" > {toc_node['title']}"
+    response = supabase.rpc(
+        'match_chunks',
+        {
+            'query_embedding': query_embedding,
+            'match_threshold': similarity_threshold,
+            'match_count': top_k
         }
+    ).execute()
     
-    def hierarchical_search(
-        self,
-        query: str,
-        top_sections: int = 3,
-        chunks_per_section: int = 3
-    ) -> List[Dict]:
-        """
-        Two-stage retrieval: sections first, then chunks.
-        Mimics your ToC-first approach from ingestion.
-        
-        Args:
-            query: Search query
-            top_sections: Number of top sections to retrieve
-            chunks_per_section: Number of chunks per section
-        
-        Returns:
-            List of sections with their best chunks
-        """
-        query_embedding = self.embed_query(query)
-        
-        # Use RPC for hierarchical search
-        response = supabase.rpc(
-            'hierarchical_search',
-            {
-                'query_embedding': query_embedding,
-                'top_sections': top_sections,
-                'chunks_per_section': chunks_per_section
-            }
-        ).execute()
-        
-        return response.data if response.data else []
+    return response.data if response.data else []
+
+
+def search_with_context(
+    query: str,
+    top_k: int = 3,
+    context_window: int = 2
+) -> List[Dict]:
+    """
+    Search and include surrounding chunks for more context.
+    Useful when you need the full story around a match.
     
-    def filtered_search(
-        self,
-        query: str,
-        top_k: int = 5,
-        page_range: Optional[Tuple[int, int]] = None,
-        max_level: Optional[int] = None,
-        section_pattern: Optional[str] = None
-    ) -> List[Dict]:
-        """
-        Semantic search with filters on hierarchy metadata.
-        Uses the same level/page structure from your ToC.
+    Args:
+        query: Search query
+        top_k: Number of matches
+        context_window: How many chunks before/after to include
         
-        Args:
-            query: Search text
-            top_k: Number of results
-            page_range: Tuple of (min_page, max_page) or None
-            max_level: Maximum heading level (e.g., 3 for up to h3)
-            section_pattern: Pattern for section titles (case-insensitive)
+    Returns:
+        List of dicts with 'match' and 'context' keys
         
-        Returns:
-            List of filtered results
-        """
-        query_embedding = self.embed_query(query)
-        
-        # If we have page_range, use optimized RPC
-        if page_range and not max_level and not section_pattern:
-            response = supabase.rpc(
-                'match_chunks_by_page',
-                {
-                    'query_embedding': query_embedding,
-                    'min_page': page_range[0],
-                    'max_page': page_range[1],
-                    'match_threshold': 0.3,
-                    'match_count': top_k
-                }
-            ).execute()
-            return response.data if response.data else []
-        
-        # Otherwise, get more results and filter in Python
-        response = supabase.rpc(
-            'match_chunks',
-            {
-                'query_embedding': query_embedding,
-                'match_threshold': 0.0,
-                'match_count': 100  # Get more for filtering
-            }
-        ).execute()
-        
-        results = response.data if response.data else []
-        
-        # Apply filters
-        filtered = []
-        for r in results:
-            # Page range filter
-            if page_range:
-                if not (page_range[0] <= r['page_start'] <= page_range[1]):
-                    continue
-            
-            # Level filter
-            if max_level:
-                if r['level'] > max_level:
-                    continue
-            
-            # Section pattern filter
-            if section_pattern:
-                if section_pattern.lower() not in r['section_title'].lower():
-                    continue
-            
-            filtered.append(r)
-            
-            if len(filtered) >= top_k:
-                break
-        
-        return filtered
+    Example:
+        >>> results = search_with_context("Revolutionary War battles", top_k=2)
+        >>> match = results[0]['match']
+        >>> context_chunks = results[0]['context']  # surrounding chunks
+    """
+    initial_results = search(query, top_k=top_k)
     
-    def hybrid_search(
-        self,
-        query: str,
-        top_k: int = 5,
-        semantic_weight: float = 0.7
-    ) -> List[Dict]:
-        """
-        Combine semantic and keyword search
-        
-        Args:
-            query: Search query
-            top_k: Number of results
-            semantic_weight: Weight for semantic score (0-1)
-        
-        Returns:
-            List of results ranked by hybrid score
-        """
-        query_embedding = self.embed_query(query)
-        keyword_weight = 1 - semantic_weight
-        
-        # Use RPC for hybrid search
-        response = supabase.rpc(
-            'hybrid_search',
-            {
-                'query_embedding': query_embedding,
-                'query_text': query,
-                'semantic_weight': semantic_weight,
-                'keyword_weight': keyword_weight,
-                'match_count': top_k
-            }
-        ).execute()
-        
-        return response.data if response.data else []
+    if not initial_results:
+        return []
     
-    def get_toc_structure(self) -> List[Dict]:
-        """
-        Get the full table of contents structure.
-        Returns flattened ToC like your flatten() function.
-        """
-        response = supabase.from_('toc_nodes') \
-            .select('*') \
-            .order('page_start') \
-            .execute()
-        
-        return response.data if response.data else []
+    enriched = []
     
-    def get_section_chunks(self, section_node_id: str, limit: int = 50) -> List[Dict]:
-        """
-        Get all chunks from a specific ToC section.
-        Useful for browsing full sections after finding relevant chunks.
+    for result in initial_results:
+        chunk_seq = result['chunk_seq']
+        toc_node_id = result['toc_node_id']
         
-        Args:
-            section_node_id: The node_id from toc_nodes table (e.g., "h3-5-1-3__from-foundation...")
-            limit: Max chunks to return
-        """
-        # First, get the toc_node database ID
-        toc_response = supabase.from_('toc_nodes') \
-            .select('id') \
-            .eq('node_id', section_node_id) \
-            .single() \
-            .execute()
-        
-        if not toc_response.data:
-            return []
-        
-        toc_id = toc_response.data['id']
-        
-        # Get chunks
-        response = supabase.from_('chunks') \
-            .select('*') \
-            .eq('toc_node_id', toc_id) \
+        # Get surrounding chunks
+        context_response = supabase.from_('chunks') \
+            .select('chunk_id, text, chunk_seq, section_title, page_start, page_end') \
+            .eq('toc_node_id', toc_node_id) \
+            .gte('chunk_seq', chunk_seq - context_window) \
+            .lte('chunk_seq', chunk_seq + context_window) \
             .order('chunk_seq') \
-            .limit(limit) \
             .execute()
         
-        return response.data if response.data else []
-    
-    def get_database_stats(self) -> Dict:
-        """Get statistics about your vector database"""
-        try:
-            response = supabase.rpc('get_vector_stats').execute()
-            return response.data[0] if response.data else {}
-        except Exception as e:
-            print(f"⚠️  Could not get stats (run SQL functions first): {e}")
-            return {}
-
-
-# Utility functions for display and analysis
-def format_results(results: List[Dict], show_text_length: int = 150):
-    """Pretty print search results"""
-    if not results:
-        print("No results found.")
-        return
-    
-    for i, r in enumerate(results, 1):
-        similarity = r.get('similarity', 0)
-        print(f"\n{i}. [{similarity:.3f}] {r['section_title']}")
-        print(f"   Level {r['level']} | Pages {r['page_start']}-{r['page_end']} | Chunk {r.get('chunk_seq', '?')}")
-        print(f"   ID: {r['chunk_id']}")
-        text = r['text'][:show_text_length]
-        print(f"   {text}{'...' if len(r['text']) > show_text_length else ''}")
-
-
-def format_hierarchical_results(results: List[Dict]):
-    """Format results from hierarchical_search"""
-    if not results:
-        print("No results found.")
-        return
-    
-    for i, section_data in enumerate(results, 1):
-        print(f"\n{'='*70}")
-        print(f"📚 Section {i}: {section_data['section_title']}")
-        print(f"   Level {section_data['section_level']} | "
-              f"Pages {section_data['section_page_start']}-{section_data['section_page_end']}")
-        print(f"   Avg similarity: {section_data['avg_similarity']:.3f} "
-              f"({section_data['chunk_count']} chunks)")
-        print(f"{'='*70}")
+        # Mark which is the match
+        context_chunks = []
+        for chunk in context_response.data:
+            chunk['position'] = 'match' if chunk['chunk_seq'] == chunk_seq else \
+                               'before' if chunk['chunk_seq'] < chunk_seq else 'after'
+            context_chunks.append(chunk)
         
-        chunks = section_data.get('chunks', [])
-        for j, chunk in enumerate(chunks, 1):
-            print(f"\n  {j}. [{chunk['similarity']:.3f}] Chunk {chunk['chunk_seq']}")
-            print(f"     Pages {chunk['page_start']}-{chunk['page_end']}")
-            text_preview = chunk['text'][:120].replace('\n', ' ')
-            print(f"     {text_preview}...")
+        enriched.append({
+            'match': result,
+            'context': context_chunks
+        })
+    
+    return enriched
 
 
-def analyze_result_quality(results: List[Dict]):
-    """Analyze the quality and diversity of search results"""
+def search_by_page(
+    query: str,
+    page_start: int,
+    page_end: int,
+    top_k: int = 5
+) -> List[Dict]:
+    """
+    Search within a specific page range.
+    Useful when you know which chapter/section to test.
+    
+    Args:
+        query: Search query
+        page_start: Starting page number
+        page_end: Ending page number
+        top_k: Number of results
+        
+    Returns:
+        List of chunks within the page range
+        
+    Example:
+        >>> # Test on Chapter 3 (pages 45-67)
+        >>> results = search_by_page("taxation policy", 45, 67, top_k=3)
+    """
+    query_embedding = embed_query(query)
+    
+    response = supabase.rpc(
+        'match_chunks_by_page',
+        {
+            'query_embedding': query_embedding,
+            'min_page': page_start,
+            'max_page': page_end,
+            'match_threshold': 0.3,
+            'match_count': top_k
+        }
+    ).execute()
+    
+    return response.data if response.data else []
+
+
+def search_by_section(
+    query: str,
+    section_pattern: str,
+    top_k: int = 5
+) -> List[Dict]:
+    """
+    Search within sections matching a pattern.
+    Useful for topic-specific assessment.
+    
+    Args:
+        query: Search query
+        section_pattern: Text to match in section titles (case-insensitive)
+        top_k: Number of results
+        
+    Returns:
+        List of chunks from matching sections
+        
+    Example:
+        >>> # Only search in sections about "Civil War"
+        >>> results = search_by_section("battle strategy", "civil war", top_k=5)
+    """
+    query_embedding = embed_query(query)
+    
+    # Get initial results
+    response = supabase.rpc(
+        'match_chunks',
+        {
+            'query_embedding': query_embedding,
+            'match_threshold': 0.0,
+            'match_count': 100
+        }
+    ).execute()
+    
+    results = response.data if response.data else []
+    
+    # Filter by section pattern
+    filtered = [
+        r for r in results 
+        if section_pattern.lower() in r['section_title'].lower()
+    ]
+    
+    return filtered[:top_k]
+
+
+def get_section_content(section_title_pattern: str) -> List[Dict]:
+    """
+    Get all chunks from a section by title pattern.
+    Useful for retrieving complete chapter content.
+    
+    Args:
+        section_title_pattern: Pattern to match section title
+        
+    Returns:
+        All chunks from matching section(s)
+        
+    Example:
+        >>> # Get entire "American Revolution" section
+        >>> chunks = get_section_content("American Revolution")
+    """
+    # Find matching sections
+    toc_response = supabase.from_('toc_nodes') \
+        .select('id') \
+        .ilike('title', f'%{section_title_pattern}%') \
+        .execute()
+    
+    if not toc_response.data:
+        return []
+    
+    section_ids = [node['id'] for node in toc_response.data]
+    
+    # Get all chunks from these sections
+    chunks_response = supabase.from_('chunks') \
+        .select('*') \
+        .in_('toc_node_id', section_ids) \
+        .order('chunk_seq') \
+        .execute()
+    
+    return chunks_response.data if chunks_response.data else []
+
+
+def get_toc() -> List[Dict]:
+    """
+    Get the table of contents.
+    Useful for showing students what topics are available.
+    
+    Returns:
+        List of all sections with titles, levels, and page ranges
+        
+    Example:
+        >>> toc = get_toc()
+        >>> for section in toc[:10]:
+        ...     print(f"H{section['level']}: {section['title']} (p.{section['page_start']})")
+    """
+    response = supabase.from_('toc_nodes') \
+        .select('*') \
+        .order('page_start') \
+        .execute()
+    
+    return response.data if response.data else []
+
+
+# ============================================================================
+# UTILITY FUNCTIONS FOR YOUR ASSESSOR
+# ============================================================================
+
+def get_reference_content(topic: str, top_k: int = 3) -> str:
+    """
+    Get reference content for grading student answers.
+    Returns concatenated text from top matches.
+    
+    Args:
+        topic: The topic being assessed
+        top_k: Number of chunks to retrieve
+        
+    Returns:
+        Combined reference text
+        
+    Example:
+        >>> # Student answered a question about Boston Tea Party
+        >>> reference = get_reference_content("Boston Tea Party causes", top_k=3)
+        >>> # Now use reference to grade the student's answer
+    """
+    results = search(topic, top_k=top_k)
+    
     if not results:
-        print("No results to analyze")
-        return
+        return ""
     
-    similarities = [r.get('similarity', 0) for r in results]
-    sections = [r['section_title'] for r in results]
-    levels = [r['level'] for r in results]
-    pages = [r['page_start'] for r in results]
-    
-    print("\n" + "="*60)
-    print("Result Quality Analysis")
-    print("="*60)
-    print(f"Total results: {len(results)}")
-    print(f"Average similarity: {np.mean(similarities):.3f}")
-    print(f"Similarity range: {np.min(similarities):.3f} - {np.max(similarities):.3f}")
-    print(f"Unique sections: {len(set(sections))} / {len(results)}")
-    
-    # Level distribution
-    from collections import Counter
-    level_counts = Counter(levels)
-    print(f"Level distribution: {dict(level_counts)}")
-    print(f"Page spread: {np.min(pages)} - {np.max(pages)} ({np.max(pages) - np.min(pages)} pages)")
-    
-    # Check for redundancy
-    unique_texts = len(set(r['text'][:100] for r in results))
-    print(f"Unique content: {unique_texts} / {len(results)}")
-    print("="*60 + "\n")
+    # Combine text from all chunks
+    texts = [r['text'] for r in results]
+    return "\n\n".join(texts)
 
 
-# Example usage
+def format_context(chunks: List[Dict], max_length: int = 2000) -> str:
+    """
+    Format chunks into a readable context string for LLM.
+    Truncates if too long.
+    
+    Args:
+        chunks: List of chunk dicts from search()
+        max_length: Max characters to return
+        
+    Returns:
+        Formatted context string
+    """
+    if not chunks:
+        return ""
+    
+    formatted = []
+    total_chars = 0
+    
+    for i, chunk in enumerate(chunks, 1):
+        section = chunk['section_title']
+        pages = f"p.{chunk['page_start']}-{chunk['page_end']}"
+        text = chunk['text']
+        
+        chunk_text = f"[Source {i}: {section} ({pages})]\n{text}\n"
+        
+        if total_chars + len(chunk_text) > max_length:
+            break
+        
+        formatted.append(chunk_text)
+        total_chars += len(chunk_text)
+    
+    return "\n".join(formatted)
+
+
+def get_stats() -> Dict:
+    """Get database statistics"""
+    try:
+        response = supabase.rpc('get_vector_stats').execute()
+        return response.data[0] if response.data else {}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ============================================================================
+# EXAMPLE USAGE FOR AURORA ASSESSOR
+# ============================================================================
+
 if __name__ == "__main__":
     print("="*70)
-    print("TESTING DOCUMENT RETRIEVAL")
+    print("AURORA ASSESSOR - RETRIEVAL EXAMPLES")
     print("="*70)
     
-    # Initialize retriever (uses EMBEDDING_MODEL from constants.py)
-    retriever = DocumentRetriever()
+    # Example 1: Simple search
+    print("\n📚 Example 1: Basic Search")
+    print("-"*70)
+    results = search("What were the causes of the American Revolution?", top_k=3)
+    for i, r in enumerate(results, 1):
+        print(f"\n{i}. {r['section_title']} (similarity: {r.get('similarity', 0):.3f})")
+        print(f"   Pages {r['page_start']}-{r['page_end']}")
+        print(f"   {r['text'][:150]}...")
     
-    # Check database stats
-    print("\n📊 Database Statistics:")
-    stats = retriever.get_database_stats()
+    # Example 2: Get reference content for grading
+    print("\n\n🎓 Example 2: Get Reference for Grading")
+    print("-"*70)
+    topic = "Boston Tea Party"
+    reference = get_reference_content(topic, top_k=2)
+    print(f"Topic: {topic}")
+    print(f"Reference length: {len(reference)} chars")
+    print(f"\nReference preview:\n{reference[:300]}...")
+    
+    # Example 3: Format for LLM
+    print("\n\n🤖 Example 3: Format Context for LLM")
+    print("-"*70)
+    results = search("Declaration of Independence", top_k=2)
+    context = format_context(results, max_length=500)
+    print("Formatted context for LLM prompt:")
+    print(context)
+    
+    # Example 4: Check stats
+    print("\n\n📊 Database Stats")
+    print("-"*70)
+    stats = get_stats()
     for key, value in stats.items():
-        print(f"   {key}: {value}")
-    
-    # Test 1: Basic search
-    print("\n" + "="*70)
-    print("TEST 1: BASIC SEMANTIC SEARCH")
-    print("="*70)
-    query = "What are neural networks?"
-    print(f"\nQuery: '{query}'")
-    results = retriever.semantic_search(query, top_k=5)
-    format_results(results)
-    analyze_result_quality(results)
-    
-    # Test 2: Search with context
-    print("\n" + "="*70)
-    print("TEST 2: SEARCH WITH CONTEXT")
-    print("="*70)
-    query = "machine learning algorithms"
-    print(f"\nQuery: '{query}'")
-    results = retriever.search_with_context(query, top_k=2, context_window=1)
-    
-    for i, result in enumerate(results, 1):
-        match = result['match']
-        print(f"\n📍 Match {i}: {match['section_title']}")
-        print(f"   Similarity: {match.get('similarity', 0):.3f}")
-        print(f"   Pages {match['page_start']}-{match['page_end']}")
-        print("\n   Context:")
-        
-        for chunk in result['context']:
-            marker = ">>>" if chunk['position'] == 'match' else "   "
-            pos_label = f"[{chunk['position'].upper():^7}]"
-            print(f"\n   {marker} {pos_label} Chunk {chunk['chunk_seq']}")
-            text_preview = chunk['text'][:100].replace('\n', ' ')
-            print(f"   {marker} {text_preview}...")
-    
-    # Test 3: Hierarchical search
-    print("\n" + "="*70)
-    print("TEST 3: HIERARCHICAL SEARCH")
-    print("="*70)
-    query = "deep learning"
-    print(f"\nQuery: '{query}'")
-    results = retriever.hierarchical_search(query, top_sections=2, chunks_per_section=3)
-    format_hierarchical_results(results)
+        print(f"  {key}: {value}")

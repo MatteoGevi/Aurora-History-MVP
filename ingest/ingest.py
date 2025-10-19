@@ -1,37 +1,24 @@
-# ingest.py - Complete document ingestion pipeline
-"""
-Document ingestion pipeline for PDF processing and vector storage.
-
-This module orchestrates the complete workflow:
-1. Fetch PDF from Supabase Storage
-2. Build Table of Contents
-3. Generate semantic chunks with hierarchy
-4. Generate embeddings
-5. Validate quality
-6. Insert into Supabase vector database
-"""
-
 from __future__ import annotations
 from typing import Tuple, List
 import numpy as np
 import json
 
 # Import from your existing modules
-from toc_chunk import (
+from ingest.toc_chunk import (
     fetch_pdf_from_storage,
     build_toc,
     chunk_sections_with_hierarchy,
     flatten
 )
 
-from embedding_import import (
+from ingest.embedding_import import (
     generate_embeddings,
     validate_embeddings,
     ingest_to_supabase
 )
 
 # Import constants - everything we need is already there!
-from constants import (
+from config.constants import (
     SUPABASE_URL,
     SUPABASE_SERVICE_ROLE_KEY,
     STORAGE_BUCKET,

@@ -1,32 +1,32 @@
-# Replace with your LLM adapter (OpenAI, vLLM, Mistral server, etc.)
-def my_llm(system: str, user: str) -> str:
-    # Pseudocode with OpenAI:
-    # resp = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role":"system","content":system}, {"role":"user","content":user}], temperature=0)
-    # return resp.choices[0].message.content
-    raise NotImplementedError
+# Example session
 
-def my_repair_llm(system: str, user: str) -> str:
-    # Often same model; temperature=0; short max_tokens
-    raise NotImplementedError
+# 1. User opens app, selects document
+docs = get_document_list()
+# → Shows "My Physics Textbook"
 
-from guardrailed_grader import grade_with_guardrails
+# 2. User browses ToC
+toc = get_document_toc(docs[0]['id'])
+# → Shows tree: Chapter 3 > Section 3.2 > ...
 
-question = "What were the main causes of the French and Indian War?"
-student_answer = "It started because the British and French fought over trade and territory in North America."
-context = """Chapter 3 > 3.1 Imperial Rivalries (pp. 45–47)
-- Conflict escalated over the Ohio River Valley...
-- British colonists and French forces clashed due to overlapping land claims and alliances with Native nations...
-"""
-
-grade = grade_with_guardrails(
-    question=question,
-    student_answer=student_answer,
-    context=context,
-    call_llm=my_llm,
-    max_retries=1,
-    allow_repair=True,
-    repair_llm=my_repair_llm,
+# 3. User selects "Chapter 3: Newton's Laws"
+questions = generate_questions(
+    document_id=docs[0]['id'],
+    node_id="h1-3__newtons-laws",
+    num_questions=5
 )
+# → 🤖 LLM CALLED HERE to generate questions
 
-print(grade.model_dump())
-# -> {'score': 4, 'rationale': '...', 'criteria': ['Context-grounded','Covers territory & trade','Misses alliances'], 'citations': ['Chapter 3 > 3.1 (pp.45–47)']}
+# 4. Show questions to user
+# UI displays: questions['questions']
+
+# 5. User answers Question 1
+evaluation = evaluate_answer(
+    document_id=docs[0]['id'],
+    node_id="h1-3__newtons-laws",
+    question=questions['questions'][0]['question'],
+    student_answer="Force equals mass times acceleration"
+)
+# → 🤖 LLM CALLED HERE to grade answer
+
+# 6. Show feedback
+# UI displays: evaluation['feedback'], evaluation['score']

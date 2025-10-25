@@ -1,372 +1,372 @@
-from typing import List, Dict, Optional, Tuple
+# retrieval/retrieval.py - Assessment-focused retrieval
+from typing import List, Dict, Optional
+import json
 import numpy as np
-from sentence_transformers import SentenceTransformer
+from config.constants import supabase
 
-# Import from your config
-from config.constants import supabase, EMBEDDING_MODEL
+# ============================================================================
+# CORE FUNCTIONS FOR ASSESSMENT APP
+# ============================================================================
 
-print(f"🤖 Loading embedding model: {EMBEDDING_MODEL}")
-_model = SentenceTransformer(EMBEDDING_MODEL)
-print(f"✓ Model loaded (dimension: {_model.get_sentence_embedding_dimension()})")
-
-def embed_query(text: str) -> List[float]:
+def get_document_list() -> List[Dict]:
     """
-    Generate embedding for a query string.
+    Get all documents uploaded by user.
+    Called when: User first opens the app
     
-    Args:
-        text: Query text to embed
-        
     Returns:
-        List of floats representing the embedding
+        List of documents with metadata
     """
-    embedding = _model.encode(text, normalize_embeddings=True)
-    return embedding.tolist()
-
-
-def search(
-    query: str,
-    top_k: int = 5,
-    similarity_threshold: float = 0.3
-) -> List[Dict]:
-    """
-    Basic semantic search - your main retrieval function.
-    
-    Args:
-        query: What the student is asking about or being tested on
-        top_k: How many relevant chunks to retrieve
-        similarity_threshold: Minimum similarity score (0-1)
-        
-    Returns:
-        List of relevant text chunks with metadata
-        
-    Example:
-        >>> results = search("What caused the American Revolution?", top_k=3)
-        >>> for r in results:
-        ...     print(r['text'][:100])
-    """
-    query_embedding = embed_query(query)
-    
-    response = supabase.rpc(
-        'match_chunks',
-        {
-            'query_embedding': query_embedding,
-            'match_threshold': similarity_threshold,
-            'match_count': top_k
-        }
-    ).execute()
+    response = supabase.table("documents") \
+        .select("id, title, total_pages, total_sections, total_chunks, created_at") \
+        .order("created_at", desc=True) \
+        .execute()
     
     return response.data if response.data else []
 
 
-def search_with_context(
-    query: str,
-    top_k: int = 3,
-    context_window: int = 2
-) -> List[Dict]:
+def build_tree(flat_nodes: List[dict]) -> List[dict]:
     """
-    Search and include surrounding chunks for more context.
-    Useful when you need the full story around a match.
+    Convert flat ToC nodes into nested tree structure for UI.
+    Called when: User selects a document and needs to browse sections
     
-    Args:
-        query: Search query
-        top_k: Number of matches
-        context_window: How many chunks before/after to include
-        
-    Returns:
-        List of dicts with 'match' and 'context' keys
-        
-    Example:
-        >>> results = search_with_context("Revolutionary War battles", top_k=2)
-        >>> match = results[0]['match']
-        >>> context_chunks = results[0]['context']  # surrounding chunks
+    This enables the UI to show expandable/collapsible tree:
+    📖 Chapter 1
+       └ 📄 Section 1.1
+       └ 📄 Section 1.2
+          └ 📄 Subsection 1.2.1
     """
-    initial_results = search(query, top_k=top_k)
-    
-    if not initial_results:
+    if not flat_nodes:
         return []
     
-    enriched = []
+    nodes = sorted(flat_nodes, key=lambda x: (x['page_start'], x['level']))
     
-    for result in initial_results:
-        chunk_seq = result['chunk_seq']
-        toc_node_id = result['toc_node_id']
+    for node in nodes:
+        node['children'] = []
+    
+    root_nodes = []
+    stack = []
+    
+    for node in nodes:
+        while stack and stack[-1]['level'] >= node['level']:
+            stack.pop()
         
-        # Get surrounding chunks
-        context_response = supabase.from_('chunks') \
-            .select('chunk_id, text, chunk_seq, section_title, page_start, page_end') \
-            .eq('toc_node_id', toc_node_id) \
-            .gte('chunk_seq', chunk_seq - context_window) \
-            .lte('chunk_seq', chunk_seq + context_window) \
-            .order('chunk_seq') \
-            .execute()
+        if stack:
+            stack[-1]['children'].append(node)
+        else:
+            root_nodes.append(node)
         
-        # Mark which is the match
-        context_chunks = []
-        for chunk in context_response.data:
-            chunk['position'] = 'match' if chunk['chunk_seq'] == chunk_seq else \
-                               'before' if chunk['chunk_seq'] < chunk_seq else 'after'
-            context_chunks.append(chunk)
+        stack.append(node)
+    
+    return root_nodes
+
+
+def get_document_toc(document_id: str) -> List[dict]:
+    """
+    Get hierarchical table of contents for a document.
+    Called when: User selects a document and wants to choose sections to study
+    
+    Returns:
+        Nested tree structure for UI display
         
-        enriched.append({
-            'match': result,
-            'context': context_chunks
+    Example UI flow:
+        1. User uploads PDF → ingestion runs
+        2. User clicks "Study" → calls get_document_toc()
+        3. UI shows tree → user expands chapters
+        4. User selects "Chapter 3" → calls get_section_content()
+    """
+    result = supabase.table("toc_nodes") \
+        .select("id, node_id, title, level, page_start, page_end") \
+        .eq("document_id", document_id) \
+        .order("page_start") \
+        .execute()
+    
+    return build_tree(result.data)
+
+
+def get_section_content(
+    document_id: str,
+    node_id: str,
+    include_children: bool = True
+) -> Dict:
+    """
+    Get all content for a selected section.
+    Called when: User selects a section to be tested on
+    
+    This is your MAIN retrieval function!
+    
+    Args:
+        document_id: UUID of the document
+        node_id: The node_id string (e.g., "h2-1-1__section-title")
+        include_children: Whether to include subsections
+        
+    Returns:
+        {
+            "section": {...},      # ToC node metadata
+            "text": "...",         # Full concatenated text
+            "chunks": [...],       # Individual chunks for citation
+            "total_words": 1234,
+            "page_range": "45-67"
+        }
+        
+    Example:
+        >>> # User selects "Chapter 3: Newton's Laws"
+        >>> content = get_section_content(doc_id, "h1-3__newtons-laws")
+        >>> # Now generate questions from content['text']
+    """
+    # 1. Get the ToC node
+    node_result = supabase.table("toc_nodes") \
+        .select("*") \
+        .eq("document_id", document_id) \
+        .eq("node_id", node_id) \
+        .single() \
+        .execute()
+    
+    node = node_result.data
+    
+    # 2. Determine which nodes to include
+    if include_children:
+        # Get all descendants (subsections)
+        all_nodes = supabase.table("toc_nodes") \
+            .select("id") \
+            .eq("document_id", document_id) \
+            .gte("page_start", node["page_start"]) \
+            .lte("page_end", node["page_end"]) \
+            .gte("level", node["level"]) \
+            .execute() \
+            .data
+        
+        toc_node_ids = [n["id"] for n in all_nodes]
+    else:
+        toc_node_ids = [node["id"]]
+    
+    # 3. Get chunks
+    chunks = supabase.table("chunks") \
+        .select("id, chunk_seq, section_title, text, page_start, page_end") \
+        .eq("document_id", document_id) \
+        .in_("toc_node_id", toc_node_ids) \
+        .order("page_start, chunk_seq") \
+        .execute() \
+        .data
+    
+    # 4. Combine text
+    full_text = "\n\n".join(c["text"] for c in chunks)
+    
+    return {
+        "section": node,
+        "text": full_text,
+        "chunks": chunks,
+        "total_words": len(full_text.split()),
+        "total_chars": len(full_text),
+        "page_range": f"{node['page_start']}-{node['page_end']}"
+    }
+
+
+def get_ancestor_path(document_id: str, node_id: str) -> List[str]:
+    """
+    Get the full path to a section (for breadcrumbs in UI).
+    Called when: Showing user where they are in the document
+    
+    Returns:
+        ["Part 1", "Chapter 3", "Section 3.2"]
+        
+    Example UI:
+        Home > My Textbook > Part 1 > Chapter 3 > Section 3.2
+    """
+    # Get all nodes
+    all_nodes = supabase.table("toc_nodes") \
+        .select("*") \
+        .eq("document_id", document_id) \
+        .order("page_start") \
+        .execute() \
+        .data
+    
+    # Find target node
+    target = next((n for n in all_nodes if n['node_id'] == node_id), None)
+    if not target:
+        return []
+    
+    # Find ancestors
+    path = []
+    for node in all_nodes:
+        if (node['page_start'] <= target['page_start'] 
+            and node['page_end'] >= target['page_end']
+            and node['level'] < target['level']):
+            path.append(node['title'])
+    
+    path.append(target['title'])
+    return path
+
+
+# ============================================================================
+# OPTIONAL: SEMANTIC SEARCH FOR FOLLOW-UP QUESTIONS
+# ============================================================================
+
+def search_within_section(
+    document_id: str,
+    node_id: str,
+    query: str,
+    top_k: int = 3
+) -> List[Dict]:
+    """
+    Search within a specific section using semantic similarity.
+    Called when: User asks a follow-up question about the section
+    
+    This is OPTIONAL - only needed if you add chat functionality
+    
+    Args:
+        document_id: Document UUID
+        node_id: Section node_id
+        query: User's question
+        top_k: Number of relevant chunks
+        
+    Returns:
+        Top-k most relevant chunks with similarity scores
+        
+    Example:
+        >>> # User studying Chapter 3, asks: "What's Newton's second law?"
+        >>> results = search_within_section(doc_id, "h1-3__physics", 
+        ...                                  "Newton's second law", top_k=2)
+    """
+    from ingest.embedding_import import generate_embeddings
+    
+    # Get the section's ToC node
+    node_result = supabase.table("toc_nodes") \
+        .select("id") \
+        .eq("document_id", document_id) \
+        .eq("node_id", node_id) \
+        .single() \
+        .execute()
+    
+    toc_node_db_id = node_result.data['id']
+    
+    # Generate query embedding
+    query_embedding = generate_embeddings(
+        [query],
+        show_progress=False
+    )[0]
+    
+    # Get all chunks from this section
+    chunks = supabase.table("chunks") \
+        .select("id, chunk_id, text, section_title, page_start, page_end, embedding") \
+        .eq("document_id", document_id) \
+        .eq("toc_node_id", toc_node_db_id) \
+        .execute() \
+        .data
+    
+    # Compute similarities
+    results = []
+    for chunk in chunks:
+        # Convert embedding to numpy array
+        chunk_emb_raw = chunk['embedding']
+        if isinstance(chunk_emb_raw, str):
+            chunk_emb = np.array(json.loads(chunk_emb_raw))
+        elif isinstance(chunk_emb_raw, list):
+            chunk_emb = np.array(chunk_emb_raw)
+        else:
+            chunk_emb = chunk_emb_raw
+        
+        chunk_emb = chunk_emb.astype(np.float32)
+        similarity = float(np.dot(query_embedding, chunk_emb))
+        
+        results.append({
+            'chunk_id': chunk['chunk_id'],
+            'text': chunk['text'],
+            'section_title': chunk['section_title'],
+            'page_start': chunk['page_start'],
+            'page_end': chunk['page_end'],
+            'similarity': similarity
         })
     
-    return enriched
-
-
-def search_by_page(
-    query: str,
-    page_start: int,
-    page_end: int,
-    top_k: int = 5
-) -> List[Dict]:
-    """
-    Search within a specific page range.
-    Useful when you know which chapter/section to test.
-    
-    Args:
-        query: Search query
-        page_start: Starting page number
-        page_end: Ending page number
-        top_k: Number of results
-        
-    Returns:
-        List of chunks within the page range
-        
-    Example:
-        >>> # Test on Chapter 3 (pages 45-67)
-        >>> results = search_by_page("taxation policy", 45, 67, top_k=3)
-    """
-    query_embedding = embed_query(query)
-    
-    response = supabase.rpc(
-        'match_chunks_by_page',
-        {
-            'query_embedding': query_embedding,
-            'min_page': page_start,
-            'max_page': page_end,
-            'match_threshold': 0.3,
-            'match_count': top_k
-        }
-    ).execute()
-    
-    return response.data if response.data else []
-
-
-def search_by_section(
-    query: str,
-    section_pattern: str,
-    top_k: int = 5
-) -> List[Dict]:
-    """
-    Search within sections matching a pattern.
-    Useful for topic-specific assessment.
-    
-    Args:
-        query: Search query
-        section_pattern: Text to match in section titles (case-insensitive)
-        top_k: Number of results
-        
-    Returns:
-        List of chunks from matching sections
-        
-    Example:
-        >>> # Only search in sections about "Civil War"
-        >>> results = search_by_section("battle strategy", "civil war", top_k=5)
-    """
-    query_embedding = embed_query(query)
-    
-    # Get initial results
-    response = supabase.rpc(
-        'match_chunks',
-        {
-            'query_embedding': query_embedding,
-            'match_threshold': 0.0,
-            'match_count': 100
-        }
-    ).execute()
-    
-    results = response.data if response.data else []
-    
-    # Filter by section pattern
-    filtered = [
-        r for r in results 
-        if section_pattern.lower() in r['section_title'].lower()
-    ]
-    
-    return filtered[:top_k]
-
-
-def get_section_content(section_title_pattern: str) -> List[Dict]:
-    """
-    Get all chunks from a section by title pattern.
-    Useful for retrieving complete chapter content.
-    
-    Args:
-        section_title_pattern: Pattern to match section title
-        
-    Returns:
-        All chunks from matching section(s)
-        
-    Example:
-        >>> # Get entire "American Revolution" section
-        >>> chunks = get_section_content("American Revolution")
-    """
-    # Find matching sections
-    toc_response = supabase.from_('toc_nodes') \
-        .select('id') \
-        .ilike('title', f'%{section_title_pattern}%') \
-        .execute()
-    
-    if not toc_response.data:
-        return []
-    
-    section_ids = [node['id'] for node in toc_response.data]
-    
-    # Get all chunks from these sections
-    chunks_response = supabase.from_('chunks') \
-        .select('*') \
-        .in_('toc_node_id', section_ids) \
-        .order('chunk_seq') \
-        .execute()
-    
-    return chunks_response.data if chunks_response.data else []
-
-
-def get_toc() -> List[Dict]:
-    """
-    Get the table of contents.
-    Useful for showing students what topics are available.
-    
-    Returns:
-        List of all sections with titles, levels, and page ranges
-        
-    Example:
-        >>> toc = get_toc()
-        >>> for section in toc[:10]:
-        ...     print(f"H{section['level']}: {section['title']} (p.{section['page_start']})")
-    """
-    response = supabase.from_('toc_nodes') \
-        .select('*') \
-        .order('page_start') \
-        .execute()
-    
-    return response.data if response.data else []
+    # Sort by similarity and return top-k
+    results.sort(key=lambda x: x['similarity'], reverse=True)
+    return results[:top_k]
 
 
 # ============================================================================
-# UTILITY FUNCTIONS FOR YOUR ASSESSOR
+# PROGRESS TRACKING (FUTURE FEATURE)
 # ============================================================================
 
-def get_reference_content(topic: str, top_k: int = 3) -> str:
+def get_section_progress(user_id: str, document_id: str) -> List[Dict]:
     """
-    Get reference content for grading student answers.
-    Returns concatenated text from top matches.
+    Get user's progress across all sections.
+    Called when: Showing user which sections they've mastered
     
-    Args:
-        topic: The topic being assessed
-        top_k: Number of chunks to retrieve
-        
     Returns:
-        Combined reference text
+        List of sections with progress stats
         
-    Example:
-        >>> # Student answered a question about Boston Tea Party
-        >>> reference = get_reference_content("Boston Tea Party causes", top_k=3)
-        >>> # Now use reference to grade the student's answer
+    Future enhancement - requires user_section_progress table
     """
-    results = search(topic, top_k=top_k)
-    
-    if not results:
-        return ""
-    
-    # Combine text from all chunks
-    texts = [r['text'] for r in results]
-    return "\n\n".join(texts)
+    # TODO: Implement after adding progress tracking table
+    pass
 
 
-def format_context(chunks: List[Dict], max_length: int = 2000) -> str:
+def update_section_progress(
+    user_id: str,
+    toc_node_id: int,
+    correct: bool,
+    total_questions: int
+):
     """
-    Format chunks into a readable context string for LLM.
-    Truncates if too long.
+    Update user's progress on a section after assessment.
+    Called when: User completes a quiz on a section
     
-    Args:
-        chunks: List of chunk dicts from search()
-        max_length: Max characters to return
-        
-    Returns:
-        Formatted context string
+    Future enhancement
     """
-    if not chunks:
-        return ""
-    
-    formatted = []
-    total_chars = 0
-    
-    for i, chunk in enumerate(chunks, 1):
-        section = chunk['section_title']
-        pages = f"p.{chunk['page_start']}-{chunk['page_end']}"
-        text = chunk['text']
-        
-        chunk_text = f"[Source {i}: {section} ({pages})]\n{text}\n"
-        
-        if total_chars + len(chunk_text) > max_length:
-            break
-        
-        formatted.append(chunk_text)
-        total_chars += len(chunk_text)
-    
-    return "\n".join(formatted)
-
-
-def get_stats() -> Dict:
-    """Get database statistics"""
-    try:
-        response = supabase.rpc('get_vector_stats').execute()
-        return response.data[0] if response.data else {}
-    except Exception as e:
-        return {"error": str(e)}
+    # TODO: Implement after adding progress tracking
+    pass
 
 
 # ============================================================================
-# EXAMPLE USAGE FOR AURORA ASSESSOR
+# USAGE EXAMPLE
 # ============================================================================
 
 if __name__ == "__main__":
-    print("="*70)
-    print("AURORA ASSESSOR - RETRIEVAL EXAMPLES")
-    print("="*70)
+    print("="*80)
+    print("ASSESSMENT APP - RETRIEVAL WORKFLOW")
+    print("="*80)
     
-    # Example 1: Simple search
-    print("\n📚 Example 1: Basic Search")
-    print("-"*70)
-    results = search("What were the causes of the American Revolution?", top_k=3)
-    for i, r in enumerate(results, 1):
-        print(f"\n{i}. {r['section_title']} (similarity: {r.get('similarity', 0):.3f})")
-        print(f"   Pages {r['page_start']}-{r['page_end']}")
-        print(f"   {r['text'][:150]}...")
+    # Step 1: User selects document
+    print("\n📚 Step 1: Get available documents")
+    docs = get_document_list()
+    if docs:
+        print(f"Found {len(docs)} documents:")
+        for doc in docs[:3]:
+            print(f"  - {doc['title']} ({doc['total_sections']} sections)")
     
-    # Example 2: Get reference content for grading
-    print("\n\n🎓 Example 2: Get Reference for Grading")
-    print("-"*70)
-    topic = "Boston Tea Party"
-    reference = get_reference_content(topic, top_k=2)
-    print(f"Topic: {topic}")
-    print(f"Reference length: {len(reference)} chars")
-    print(f"\nReference preview:\n{reference[:300]}...")
+    # Step 2: User browses ToC
+    if docs:
+        document_id = docs[0]['id']
+        print(f"\n📖 Step 2: Get ToC for: {docs[0]['title']}")
+        toc = get_document_toc(document_id)
+        print(f"Found {len(toc)} chapters")
+        if toc:
+            print(f"First chapter: {toc[0]['title']}")
+            if toc[0].get('children'):
+                print(f"  Subsections: {len(toc[0]['children'])}")
     
-    # Example 3: Format for LLM
-    print("\n\n🤖 Example 3: Format Context for LLM")
-    print("-"*70)
-    results = search("Declaration of Independence", top_k=2)
-    context = format_context(results, max_length=500)
-    print("Formatted context for LLM prompt:")
-    print(context)
+    # Step 3: User selects section
+    print(f"\n🎯 Step 3: User selects a section to study")
+    if toc:
+        # Get first H2 section
+        first_section = None
+        for chapter in toc:
+            if chapter.get('children'):
+                first_section = chapter['children'][0]
+                break
+        
+        if first_section:
+            print(f"Selected: {first_section['title']}")
+            content = get_section_content(
+                document_id, 
+                first_section['node_id'],
+                include_children=False
+            )
+            
+            print(f"\n📊 Section content:")
+            print(f"  Total words: {content['total_words']:,}")
+            print(f"  Pages: {content['page_range']}")
+            print(f"  Chunks: {len(content['chunks'])}")
+            print(f"\n  Preview: {content['text'][:200]}...")
     
-    # Example 4: Check stats
-    print("\n\n📊 Database Stats")
-    print("-"*70)
-    stats = get_stats()
-    for key, value in stats.items():
-        print(f"  {key}: {value}")
+    print("\n" + "="*80)
+    print("✅ Retrieval workflow complete!")

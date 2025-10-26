@@ -1,0 +1,116 @@
+{
+  "title": "Section Answer Assessment Rubric",
+  "type": "analytic",
+  "total_score": 10,
+  "criteria": [
+    {
+      "id": "C1",
+      "title": "Factual correctness",
+      "description": "Does the answer correctly reflect the key concepts/facts in the selected textbook section?",
+      "weight": 1,
+      "levels": [
+        {
+          "score": 0,
+          "description": "Many key facts are missing or incorrect."
+        },
+        {
+          "score": 1,
+          "description": "Some key facts are correct, but several omissions or minor errors."
+        },
+        {
+          "score": 2,
+          "description": "All major key facts are correct (only minor errors if any)."
+        }
+      ]
+    },
+    {
+      "id": "C2",
+      "title": "Coverage of section scope",
+      "description": "Did the answer cover the relevant parts of the ToC section (and any included subsections)?",
+      "weight": 1,
+      "levels": [
+        {
+          "score": 0,
+          "description": "Very limited scope; major areas of the section aren’t addressed."
+        },
+        {
+          "score": 1,
+          "description": "Partial coverage; some important parts of the section are missing."
+        },
+        {
+          "score": 2,
+          "description": "Comprehensive coverage of the section’s required scope."
+        }
+      ]
+    },
+    {
+      "id": "C3",
+      "title": "Use of section-specific terminology/structure",
+      "description": "Does the answer incorporate relevant terms, definitions or structure from the textbook section?",
+      "weight": 1,
+      "levels": [
+        {
+          "score": 0,
+          "description": "Minimal or no use of relevant terminology or structure from the section."
+        },
+        {
+          "score": 1,
+          "description": "Some correct use of terminology/structure, but inconsistent or incomplete."
+        },
+        {
+          "score": 2,
+          "description": "Clear and consistent use of correct terms and structure from the section."
+        }
+      ]
+    },
+    {
+      "id": "C4",
+      "title": "Explanation and logical coherence",
+      "description": "Is the answer logically organized, flows well, and explains rather than just listing facts?",
+      "weight": 1,
+      "levels": [
+        {
+          "score": 0,
+          "description": "Explanation is unclear or disorganized; mostly lists facts without structure."
+        },
+        {
+          "score": 1,
+          "description": "Some organization and explanation, but could be deeper or more coherent."
+        },
+        {
+          "score": 2,
+          "description": "Clear, well-organized explanation; facts embedded within coherent structure."
+        }
+      ]
+    },
+    {
+      "id": "C5",
+      "title": "Citation/linking to source content",
+      "description": "Does the answer show that it is grounded in the retrieved textbook section and map to relevant chunks/pages?",
+      "weight": 1,
+      "levels": [
+        {
+          "score": 0,
+          "description": "No indication of where section content was used; lacks supporting evidence."
+        },
+        {
+          "score": 1,
+          "description": "Some indication of source material; uses some relevant parts of the section but not clearly grounded."
+        },
+        {
+          "score": 2,
+          "description": "Strong linkage: answer clearly grounded in retrieved section content and shows how that content supports the answer."
+        }
+      ]
+    }
+  ],
+  "interpretation": {
+    "9-10": "Mastery: Answer is accurate, full, well-explained, and clearly grounded in the section.",
+    "6-8": "Proficient: Good work with some minor gaps (coverage or explanation could improve).",
+    "0-5": "Needs Review: Significant omissions/errors, weak explanation, or lack of grounding in the section."
+  },
+  "feedback_meta": {
+    "provide_per_criterion_feedback": true,
+    "highlight_chunks": true
+  }
+}

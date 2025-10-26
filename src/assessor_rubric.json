@@ -107,7 +107,7 @@
   "interpretation": {
     "9-10": "Mastery: Answer is accurate, full, well-explained, and clearly grounded in the section.",
     "6-8": "Proficient: Good work with some minor gaps (coverage or explanation could improve).",
-    "0-5": "Needs Review: Significant omissions/errors, weak explanation, or lack of grounding in the section."
+    "0-5": "Needs Review: Significant omissions/errors, weak explanation, or lack of grounding in this section."
   },
   "feedback_meta": {
     "provide_per_criterion_feedback": true,

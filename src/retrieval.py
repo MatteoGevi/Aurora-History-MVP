@@ -196,11 +196,6 @@ def get_ancestor_path(document_id: str, node_id: str) -> List[str]:
     path.append(target['title'])
     return path
 
-
-# ============================================================================
-# OPTIONAL: SEMANTIC SEARCH FOR FOLLOW-UP QUESTIONS
-# ============================================================================
-
 def search_within_section(
     document_id: str,
     node_id: str,
@@ -281,11 +276,6 @@ def search_within_section(
     results.sort(key=lambda x: x['similarity'], reverse=True)
     return results[:top_k]
 
-
-# ============================================================================
-# PROGRESS TRACKING (FUTURE FEATURE)
-# ============================================================================
-
 def get_section_progress(user_id: str, document_id: str) -> List[Dict]:
     """
     Get user's progress across all sections.
@@ -314,11 +304,6 @@ def update_section_progress(
     """
     # TODO: Implement after adding progress tracking
     pass
-
-
-# ============================================================================
-# USAGE EXAMPLE
-# ============================================================================
 
 if __name__ == "__main__":
     print("="*80)

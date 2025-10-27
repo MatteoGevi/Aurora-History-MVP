@@ -34,7 +34,7 @@ QA_EMBEDDING_MODEL = "text-embedding-3-small"
 TARGET_CHARS = 1000
 OVERLAP_CHARS = 150
 
-MODEL_NAME = "mistralai/Mistral-7B-Instruct-v0.3"
+MODEL_NAME = "mistral"
 MODEL_QUANTIZATION = "4bit"
 MODEL_TEMPERATURE = 0.4  # Lower = more focused, Higher = more creative
 MODEL_MAX_TOKENS = 2048

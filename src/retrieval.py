@@ -2,7 +2,7 @@
 from typing import List, Dict, Optional
 import json
 import numpy as np
-from config.constants import supabase
+from config.constants import supabase, MODEL_NAME
 
 # ============================================================================
 # CORE FUNCTIONS FOR ASSESSMENT APP

@@ -1,7 +1,7 @@
-# src/assessment.py (SIMPLIFIED)
+# src/assessment.py
 import json
 from typing import List, Dict
-from src.models import model
+from src.models import generate  # Just import the function
 from src.retrieval import get_section_content
 
 def generate_questions(
@@ -12,61 +12,40 @@ def generate_questions(
 ) -> Dict:
     """Generate assessment questions"""
     
-    # Get section content
     content = get_section_content(document_id, node_id, include_children=True)
     
-    # Build prompt
-    prompt = f"""You are an expert educator creating assessment questions for an AI Engineering course.
+    prompt = f"""You are an expert educator creating assessment questions.
 
-**Section:** {content['section']['title']}
-**Pages:** {content['page_range']}
+Section: {content['section']['title']}
+Content: {content['text'][:4000]}
 
-**Content:**
-{content['text'][:4000]}
+Generate {num_questions} {difficulty} questions. Return ONLY a JSON array:
 
----
-
-Generate {num_questions} {difficulty} assessment questions that test understanding of this section.
-
-Requirements:
-- Mix conceptual understanding with technical details
-- Reference specific concepts from the text
-- Include page numbers where answers can be found
-- Test both theory and practical application
-
-Return ONLY a JSON array with this exact format (no other text):
 [
   {{
-    "question": "What is...",
+    "question": "...",
     "difficulty": "easy/medium/hard",
-    "page_reference": "45-47",
+    "page_reference": "X-Y",
     "key_concepts": ["concept1", "concept2"]
   }}
 ]
 """
     
-    # Generate
-    response = model.generate(prompt, max_tokens=2000, temperature=0.5)
+    response = generate(prompt, max_tokens=2000, temperature=0.5)
     
     # Parse
     try:
         start = response.find('[')
         end = response.rfind(']') + 1
-        if start >= 0 and end > start:
-            questions = json.loads(response[start:end])
-        else:
-            questions = json.loads(response)
+        questions = json.loads(response[start:end]) if start >= 0 else json.loads(response)
     except Exception as e:
-        print(f"⚠️ Failed to parse questions: {e}")
-        print(f"Raw response: {response[:500]}")
+        print(f"⚠️ Parse error: {e}")
         questions = []
     
     return {
         "questions": questions,
         "section_info": {
             "title": content['section']['title'],
-            "page_range": content['page_range'],
-            "total_words": content['total_words']
-        },
-        "model_used": "mistralai/Mistral-7B-Instruct-v0.3"
+            "page_range": content['page_range']
+        }
     }

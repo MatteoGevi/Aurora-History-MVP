@@ -4759,6 +4759,22 @@ files = [
 tests = ["pytest", "pytest-cov"]
 
 [[package]]
+name = "ollama"
+version = "0.6.0"
+description = "The official Python client for Ollama."
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "ollama-0.6.0-py3-none-any.whl", hash = "sha256:534511b3ccea2dff419ae06c3b58d7f217c55be7897c8ce5868dfb6b219cf7a0"},
+    {file = "ollama-0.6.0.tar.gz", hash = "sha256:da2b2d846b5944cfbcee1ca1e6ee0585f6c9d45a2fe9467cbcd096a37383da2f"},
+]
+
+[package.dependencies]
+httpx = ">=0.27"
+pydantic = ">=2.9"
+
+[[package]]
 name = "onnx"
 version = "1.19.0"
 description = "Open Neural Network Exchange"
@@ -9747,4 +9763,4 @@ cffi = ["cffi (>=1.17) ; python_version >= \"3.13\" and platform_python_implemen
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.14"
-content-hash = "f56b840f274f857e889760d3959a990419f89266b10d5bae7a20d721de24c646"
+content-hash = "3f1a8d54f9857b08077cae13a7ef752c39986a37da822be2fd980779dc1a28ee"

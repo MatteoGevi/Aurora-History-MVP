@@ -46,56 +46,6 @@ def display_toc(toc):
             st.session_state.current_page = page - 1
             st.rerun()
 
-def build_tree(flat_nodes: List[dict]) -> List[dict]:
-    """
-    Convert flat ToC nodes into nested tree structure.
-    
-    Input: [
-        {"id": 1, "node_id": "h1-1", "level": 1, "title": "Chapter 1", ...},
-        {"id": 2, "node_id": "h2-1-1", "level": 2, "title": "Section 1.1", ...},
-        {"id": 3, "node_id": "h2-1-2", "level": 2, "title": "Section 1.2", ...},
-    ]
-    
-    Output: [
-        {
-            "id": 1, 
-            "title": "Chapter 1",
-            "children": [
-                {"id": 2, "title": "Section 1.1", "children": []},
-                {"id": 3, "title": "Section 1.2", "children": []}
-            ]
-        }
-    ]
-    """
-    if not flat_nodes:
-        return []
-    
-    # Sort by page_start to maintain document order
-    nodes = sorted(flat_nodes, key=lambda x: (x['page_start'], x['level']))
-    
-    # Add children array to each node
-    for node in nodes:
-        node['children'] = []
-    
-    # Build tree using stack
-    root_nodes = []
-    stack = []
-    
-    for node in nodes:
-        # Pop nodes from stack that aren't ancestors
-        while stack and stack[-1]['level'] >= node['level']:
-            stack.pop()
-        
-        # Add to parent or root
-        if stack:
-            stack[-1]['children'].append(node)
-        else:
-            root_nodes.append(node)
-        
-        stack.append(node)
-    
-    return root_nodes
-
 def display_chat():
     """Display chat interface"""
     st.markdown("### 💬 Learning Assistant")

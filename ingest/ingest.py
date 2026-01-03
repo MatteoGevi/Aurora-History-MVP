@@ -5,6 +5,17 @@ import numpy as np
 import json
 from uuid import UUID
 
+import sys
+from pathlib import Path
+
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+from typing import Tuple, List, Optional
+import numpy as np
+import json
+from uuid import UUID
+
 from ingest.toc_chunk import (
     fetch_pdf_from_storage,
     build_toc,
@@ -27,7 +38,6 @@ from config.constants import (
     OVERLAP_CHARS,
     supabase
 )
-
 
 def ingest_document(user_id: Optional[str] = None) -> str:
     """
@@ -110,7 +120,7 @@ def ingest_document(user_id: Optional[str] = None) -> str:
     
     document_record = {
         "user_id": user_id,
-        "storage_path": f"{STORAGE_BUCKET}/{PDF_FILENAME}",
+        "storage_path": PDF_FILENAME,  # Just the filename, bucket is stored separately
         "storage_bucket": STORAGE_BUCKET,
         "original_filename": PDF_FILENAME,
         "title": doc_title,

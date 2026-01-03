@@ -1,4 +1,3 @@
-# src/models.py - SIMPLE FUNCTION VERSION
 import ollama
 from config.constants import MODEL_NAME, MODEL_TEMPERATURE, MODEL_MAX_TOKENS
 

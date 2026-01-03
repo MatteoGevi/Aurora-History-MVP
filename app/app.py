@@ -1,10 +1,10 @@
-# app.py - MINIMAL INTEGRATION (keeping your existing code)
+# app.py - Load PDFs from Supabase Storage using existing fetch function
 import sys
 from pathlib import Path
 
-# Add parent directory to path so we can import from src/
-parent_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(parent_dir))
+# Add project root to Python path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
 import streamlit as st
 import pymupdf as fitz
@@ -12,10 +12,12 @@ from PIL import Image
 import io
 from typing import List
 
-from components import load_pdf, render_pdf_page, display_chat
+from components import render_pdf_page, display_chat
 from src.retrieval import get_document_list, get_document_toc as get_db_toc, get_section_content
 from src.assessment import generate_questions
 from src.evaluation import evaluate_answer
+from config.constants import supabase, STORAGE_BUCKET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+from ingest.toc_chunk import fetch_pdf_from_storage
 
 # Page configuration
 st.set_page_config(
@@ -24,7 +26,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Custom CSS (your existing CSS)
+# Custom CSS
 st.markdown("""
     <style>
     .toc-container {
@@ -68,18 +70,18 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Initialize session state (your existing + new for assessment)
+# Initialize session state
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 0
 if 'pdf_doc' not in st.session_state:
     st.session_state.pdf_doc = None
-if 'toc' not in st.session_state:
-    st.session_state.toc = []
+if 'selected_document_id' not in st.session_state:
+    st.session_state.selected_document_id = None
 if 'show_toc' not in st.session_state:
     st.session_state.show_toc = True
-# NEW: Assessment mode
+# Assessment mode
 if 'assessment_mode' not in st.session_state:
     st.session_state.assessment_mode = False
 if 'selected_section' not in st.session_state:
@@ -91,21 +93,71 @@ if 'current_answer' not in st.session_state:
 if 'evaluation_result' not in st.session_state:
     st.session_state.evaluation_result = None
 
-# Helper function to display ToC from database
-def display_db_toc():
-    """Display ToC from ingested documents with 'Study' buttons"""
-    st.markdown("### 📚 Study Sections")
+def get_pdf_from_storage(document_id: str) -> tuple:
+    """
+    Download PDF from Supabase Storage using the existing fetch function
     
-    # Get documents from database
-    docs = get_document_list()
+    Returns:
+        (pdf_doc, filename) or (None, None) if error
+    """
+    try:
+        # Get document metadata from database
+        doc_result = supabase.table("documents").select("*").eq("id", document_id).single().execute()
+        doc_data = doc_result.data
+        
+        # Get the filename - prefer original_filename (just filename) over storage_path (bucket/filename)
+        filename = doc_data.get('original_filename') or doc_data.get('file_path') or doc_data.get('filename')
+        
+        # If we got storage_path, strip the bucket prefix if present
+        if not filename:
+            storage_path = doc_data.get('storage_path')
+            if storage_path:
+                # storage_path is stored as "bucket/filename", so strip bucket prefix
+                if storage_path.startswith(f"{STORAGE_BUCKET}/"):
+                    filename = storage_path[len(f"{STORAGE_BUCKET}/"):]
+                else:
+                    filename = storage_path
+        
+        if not filename:
+            # Fallback: use title + .pdf
+            title = doc_data.get('title', document_id)
+            filename = title if title.endswith('.pdf') else f"{title}.pdf"
+        
+        print(f"📥 Fetching: {filename} from bucket: {STORAGE_BUCKET}")
+        
+        # Use the existing fetch function from toc_chunk.py
+        pdf_bytes = fetch_pdf_from_storage(
+            supabase_url=SUPABASE_URL,
+            service_role_key=SUPABASE_SERVICE_ROLE_KEY,
+            bucket=STORAGE_BUCKET,
+            filename=filename
+        )
+        
+        # Open with PyMuPDF
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+        
+        return doc, doc_data.get('title', 'Document')
+        
+    except Exception as e:
+        st.error(f"Error loading PDF from storage: {e}")
+        st.info(f"Tried to load: {filename} from bucket '{STORAGE_BUCKET}'")
+        
+        # Try to list available files
+        try:
+            files = supabase.storage.from_(STORAGE_BUCKET).list()
+            if files:
+                file_names = [f.get('name') for f in files]
+                st.info(f"Available files in bucket: {', '.join(file_names)}")
+        except:
+            pass
+        
+        return None, None
+
+def display_db_toc(document_id: str, pdf_doc):
+    """Display ToC from database as clickable tree"""
+    st.markdown("### 📚 Table of Contents")
     
-    if not docs:
-        st.info("No documents ingested yet. Upload and ingest first.")
-        return
-    
-    # For now, use first document (later can add selector)
-    doc = docs[0]
-    toc = get_db_toc(doc['id'])
+    toc = get_db_toc(document_id)
     
     if not toc:
         st.info("No table of contents found")
@@ -113,45 +165,21 @@ def display_db_toc():
     
     def render_toc_node(nodes, level=0):
         for node in nodes:
-            indent = "  " * level
+            indent = "　" * level  # Use full-width space for visual indent
             
-            # Create columns for title and button
-            col1, col2 = st.columns([3, 1])
+            # Single clickable button for the entire section
+            button_label = f"{indent}{node['title']}"
             
-            with col1:
-                st.markdown(f"{indent}**{node['title']}**")
-                st.caption(f"{indent}Pages {node['page_start']}-{node['page_end']}")
+            if st.button(button_label, key=f"toc_{node['node_id']}", use_container_width=True):
+                st.session_state.current_page = node['page_start'] - 1
+                st.session_state.assessment_mode = False  # Just navigate, don't start assessment
+                st.rerun()
             
-            with col2:
-                if st.button("Study", key=f"study_{node['node_id']}"):
-                    st.session_state.assessment_mode = True
-                    st.session_state.selected_section = node
-                    st.session_state.current_page = node['page_start'] - 1  # Jump to page
-                    st.rerun()
-            
-            # Render children
+            # Render children recursively
             if node.get('children'):
                 render_toc_node(node['children'], level + 1)
     
     render_toc_node(toc)
-
-# Helper to display PDF ToC (your existing function - keep it)
-def display_toc(toc):
-    """Display clickable table of contents"""
-    st.markdown("### 📚 Table of Contents")
-    
-    if not toc:
-        st.info("No table of contents found in this PDF")
-        return
-    
-    for i, item in enumerate(toc):
-        level, title, page = item
-        indent = "　" * (level - 1)
-        
-        button_label = f"{indent}{title}"
-        if st.button(button_label, key=f"toc_{i}"):
-            st.session_state.current_page = page - 1
-            st.rerun()
 
 # Main app header
 col_title, col_toggle = st.columns([4, 1])
@@ -163,19 +191,38 @@ with col_toggle:
         st.session_state.show_toc = not st.session_state.show_toc
         st.rerun()
 
-# File uploader
-uploaded_file = st.file_uploader("Upload your PDF document", type=['pdf'])
+# Document selector
+st.markdown("---")
+docs = get_document_list()
 
-if uploaded_file is not None:
-    # Load PDF if not already loaded
-    if st.session_state.pdf_doc is None or uploaded_file.name != st.session_state.get('current_pdf_name'):
-        with st.spinner("Loading PDF..."):
-            doc, toc = load_pdf(uploaded_file)
-            if doc:
-                st.session_state.pdf_doc = doc
-                st.session_state.toc = toc
-                st.session_state.current_pdf_name = uploaded_file.name
-                st.success(f"✅ Loaded: {uploaded_file.name}")
+if not docs:
+    st.warning("⚠️ No documents found in database. Please ingest a document first.")
+    st.info("Run your ingestion script to add documents to the database.")
+    st.stop()
+
+# Create document selector
+doc_options = {doc['title']: doc['id'] for doc in docs}
+selected_title = st.selectbox(
+    "📚 Select a document to study:",
+    options=list(doc_options.keys()),
+    key="doc_selector"
+)
+
+selected_doc_id = doc_options[selected_title]
+
+# Load PDF if selection changed
+if selected_doc_id != st.session_state.selected_document_id:
+    with st.spinner(f"Loading {selected_title}..."):
+        doc, title = get_pdf_from_storage(selected_doc_id)
+        if doc:
+            st.session_state.pdf_doc = doc
+            st.session_state.selected_document_id = selected_doc_id
+            st.session_state.current_page = 0
+            st.success(f"✅ Loaded: {title}")
+            st.rerun()
+
+# Main interface (only show if PDF is loaded)
+if st.session_state.pdf_doc is not None:
     
     # Create dynamic column layout
     if st.session_state.show_toc:
@@ -187,13 +234,7 @@ if uploaded_file is not None:
     # Column 1: Table of Contents
     if st.session_state.show_toc and col1:
         with col1:
-            # Toggle between PDF ToC and Study ToC
-            toc_mode = st.radio("ToC Mode:", ["PDF Navigation", "Study Mode"], horizontal=True)
-            
-            if toc_mode == "PDF Navigation":
-                display_toc(st.session_state.toc)
-            else:
-                display_db_toc()
+            display_db_toc(st.session_state.selected_document_id, st.session_state.pdf_doc)
             
             # Page navigation
             st.markdown("---")
@@ -217,7 +258,7 @@ if uploaded_file is not None:
             
             st.text(f"Page {st.session_state.current_page + 1} of {total_pages}")
     
-    # Column 2: PDF Viewer (your existing code - unchanged)
+    # Column 2: PDF Viewer
     with col2:
         st.markdown("### 📖 Document Viewer")
         img = render_pdf_page(st.session_state.pdf_doc, st.session_state.current_page)
@@ -240,7 +281,7 @@ if uploaded_file is not None:
     
     # Column 3: Chat/Assessment Interface
     with col3:
-        # NEW: Show assessment if in assessment mode
+        # Show assessment if in assessment mode
         if st.session_state.assessment_mode and st.session_state.selected_section:
             st.markdown("### 📝 Assessment")
             
@@ -254,9 +295,8 @@ if uploaded_file is not None:
                 
                 if st.button("🎲 Generate Questions", type="primary"):
                     with st.spinner("Generating..."):
-                        docs = get_document_list()
                         result = generate_questions(
-                            document_id=docs[0]['id'],
+                            document_id=st.session_state.selected_document_id,
                             node_id=section['node_id'],
                             num_questions=num_q,
                             difficulty=difficulty
@@ -276,9 +316,8 @@ if uploaded_file is not None:
                 if st.button("Submit Answer", type="primary"):
                     if answer.strip():
                         with st.spinner("Evaluating..."):
-                            docs = get_document_list()
                             evaluation = evaluate_answer(
-                                document_id=docs[0]['id'],
+                                document_id=st.session_state.selected_document_id,
                                 node_id=section['node_id'],
                                 question=question['question'],
                                 student_answer=answer
@@ -322,4 +361,4 @@ if uploaded_file is not None:
             display_chat()
 
 else:
-    st.info("👆 Please upload a PDF document to get started")
+    st.info("👆 Please select a document to get started")

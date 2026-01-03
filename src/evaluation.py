@@ -1,4 +1,3 @@
-# src/evaluation.py - WITH RUBRIC
 import json
 from typing import Dict
 from pathlib import Path
@@ -84,7 +83,7 @@ Return your evaluation as JSON:
     
     print("⏳ Evaluating with rubric...\n")
     
-    response = generate(prompt, max_tokens=2000, temperature=0.3)
+    response = generate(prompt, max_tokens=800, temperature=0.3)
     
     try:
         start = response.find('{')

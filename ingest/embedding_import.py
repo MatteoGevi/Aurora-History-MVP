@@ -1,7 +1,7 @@
 # ingest/embed.py - Embedding utilities
 from typing import List, Dict, Tuple, Optional
 import numpy as np
-from ingest.toc_chunk import flatten
+from toc_chunk import flatten
 from sentence_transformers import SentenceTransformer
 
 def generate_embeddings(

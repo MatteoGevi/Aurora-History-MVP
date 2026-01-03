@@ -58,7 +58,7 @@ def display_chat():
                 st.write(message["content"])
     
     # Chat input
-    if prompt := st.chat_input("Ask a question about the content..."):
+    if prompt := st.chat_input("Insert your answer for this specific topic..."):
         # Add user message
         st.session_state.messages.append({"role": "user", "content": prompt})
         

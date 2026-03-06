@@ -211,8 +211,10 @@ def run_full_mode() -> None:
     print(_c("\n  DOCUMENTS", BOLD))
     print(_c("  " + _hr(), GREY))
     for i, doc in enumerate(docs):
+        sections = doc['total_sections']
+        pages = doc['total_pages']
         print(f"  {_c(str(i).rjust(2), CYAN)}  {doc['title']}  "
-              f"{_c(f'({doc[\"total_sections\"]} sections, {doc[\"total_pages\"]} pages)', GREY)}")
+              f"{_c(f'({sections} sections, {pages} pages)', GREY)}")
 
     doc_idx = int(input(_c("\n  Select document number: ", BOLD)))
     doc = docs[doc_idx]

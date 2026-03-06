@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 
 from src.retrieval import get_section_content
-from src.guardrailed_grader import grade_with_guardrails, Grade
+from src.guardrailed_grader import grade_with_guardrails, Grade, MAX_SCORE
 
 RUBRIC_PATH = Path(__file__).parent / "assessor_rubric.json"
 with open(RUBRIC_PATH) as f:
     RUBRIC = json.load(f)
+
 
 def _make_ollama_adapter():
     """
@@ -25,6 +26,7 @@ def _make_ollama_adapter():
         return generate(full_prompt, max_tokens=1000, temperature=0.2)
 
     return call_llm
+
 
 def run_evaluation(
     document_id: str,
@@ -45,18 +47,18 @@ def run_evaluation(
 
     Returns:
         {
-            "score":        int (0–5),
-            "max_score":    int (5),
-            "percentage":   float (0–100),
-            "rationale":    str,            # overall narrative feedback
-            "criteria":     List[str],      # rubric criteria touched
-            "citations":    List[str],      # chunks/pages the grader referenced
-            "level":        str,            # "Mastery" / "Proficient" / "Needs Review"
-            "section_title": str,
-            "page_range":   str,
+            "total_score":      int   (0–10),
+            "max_score":        int   (10),
+            "percentage":       float (0–100),
+            "overall_feedback": str,
+            "criteria_scores":  List[{"id", "score", "feedback"}],
+            "citations":        List[str],
+            "performance_level": str,   # "Mastery" / "Proficient" / "Needs Review"
+            "interpretation":   str,
+            "section_title":    str,
+            "page_range":       str,
         }
     """
-
     # 1. Retrieve reference content for this section
     content = get_section_content(document_id, node_id, include_children=True)
     context_text = content["text"][:5000]  # guard against huge sections
@@ -75,34 +77,28 @@ def run_evaluation(
         repair_llm=call_llm,  # reuse same model for repair
     )
 
-    # 4. Map score (0–5) to performance level using rubric interpretation
-    # The rubric uses 0–10 internally; guardrailed_grader uses 0–5.
-    # We normalize to percentage and apply the rubric thresholds.
-    percentage = round((grade.score / 5) * 100)
-    normalized_10 = grade.score * 2  # 0–5 → 0–10 for rubric lookup
-
-    if normalized_10 >= 9:
-        level = "Mastery"
-        interpretation = RUBRIC["interpretation"]["9-10"]
-    elif normalized_10 >= 6:
-        level = "Proficient"
-        interpretation = RUBRIC["interpretation"]["6-8"]
-    else:
-        level = "Needs Review"
-        interpretation = RUBRIC["interpretation"]["0-5"]
-
-    # 5. Return structured result
+    # 4. Return structured result using Grade's own computed properties.
+    #    Grade.total_score  = sum of 5 criteria × 2 pts each  = 0–10
+    #    Grade.percentage   = (total_score / MAX_SCORE) * 100
+    #    Grade.performance_level / .interpretation derived from rubric thresholds.
     return {
-        "score": grade.score,
-        "max_score": 5,
-        "percentage": percentage,
-        "rationale": grade.rationale,
-        "criteria": grade.criteria,
-        "citations": grade.citations,
-        "level": level,
-        "interpretation": interpretation,
-        "section_title": content["section"]["title"],
-        "page_range": content["page_range"],
+        "total_score":      grade.total_score,
+        "max_score":        MAX_SCORE,
+        "percentage":       grade.percentage,
+        "overall_feedback": grade.overall_feedback,
+        "criteria_scores": [
+            {
+                "id":       cs.criterion_id,
+                "score":    cs.score,
+                "feedback": cs.feedback,
+            }
+            for cs in grade.criteria_scores
+        ],
+        "citations":        grade.citations,
+        "performance_level": grade.performance_level,
+        "interpretation":   grade.interpretation,
+        "section_title":    content["section"]["title"],
+        "page_range":       content["page_range"],
     }
 
 
@@ -115,13 +111,15 @@ def run_quick_check(
     Lightweight version — pass context directly (no DB call).
     Useful for rapid testing without a full Supabase setup.
 
+    Returns a Grade object; call .to_dict() to get a flat dict for display.
+
     Example:
         grade = run_quick_check(
             context_text="Newton's second law states F = ma...",
             question="Explain Newton's second law",
             student_answer="Force equals mass times acceleration",
         )
-        print(grade.score, grade.rationale)
+        print(grade.total_score, grade.overall_feedback)
     """
     call_llm = _make_ollama_adapter()
     return grade_with_guardrails(
@@ -147,7 +145,7 @@ if __name__ == "__main__":
     1 kg·m/s².
     """
 
-    result = run_quick_check(
+    grade = run_quick_check(
         context_text=sample_context,
         question="Explain Newton's Second Law and its implications.",
         student_answer=(
@@ -156,7 +154,7 @@ if __name__ == "__main__":
         ),
     )
 
-    print(f"Score:     {result.score}/5")
-    print(f"Rationale: {result.rationale}")
-    print(f"Criteria:  {result.criteria}")
-    print(f"Citations: {result.citations}")
+    print(f"Score:     {grade.total_score}/{MAX_SCORE}")
+    print(f"Feedback:  {grade.overall_feedback}")
+    print(f"Level:     {grade.performance_level}")
+    print(f"Citations: {grade.citations}")

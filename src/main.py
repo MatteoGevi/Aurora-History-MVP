@@ -1,4 +1,4 @@
-# Example session
+# Example session — pseudocode showing the full Aurora flow
 
 # 1. User opens app, selects document
 docs = get_document_list()
@@ -20,7 +20,7 @@ questions = generate_questions(
 # UI displays: questions['questions']
 
 # 5. User answers Question 1
-evaluation = evaluate_answer(
+evaluation = run_evaluation(
     document_id=docs[0]['id'],
     node_id="h1-3__newtons-laws",
     question=questions['questions'][0]['question'],
@@ -29,4 +29,4 @@ evaluation = evaluate_answer(
 # → 🤖 LLM CALLED HERE to grade answer
 
 # 6. Show feedback
-# UI displays: evaluation['feedback'], evaluation['score']
+# UI displays: evaluation['overall_feedback'], evaluation['total_score']

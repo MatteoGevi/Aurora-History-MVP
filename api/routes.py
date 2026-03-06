@@ -1,7 +1,7 @@
 # api/routes.py (KEEP IT SIMPLE)
 from flask import Flask, request, jsonify
 from src.assessment import generate_questions
-from src.evaluation import evaluate_answer
+from src.pipeline import run_evaluation
 from src.retrieval import get_document_list, get_document_toc
 
 app = Flask(__name__)
@@ -30,7 +30,7 @@ def generate_assessment():
 @app.route('/api/assessment/evaluate', methods=['POST'])
 def evaluate():
     data = request.json
-    result = evaluate_answer(
+    result = run_evaluation(
         document_id=data['document_id'],
         node_id=data['node_id'],
         question=data['question'],

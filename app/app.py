@@ -15,7 +15,7 @@ from typing import List
 from components import render_pdf_page, display_chat
 from src.retrieval import get_document_list, get_document_toc as get_db_toc, get_section_content
 from src.assessment import generate_questions
-from src.evaluation import evaluate_answer
+from src.pipeline import run_evaluation
 from config.constants import supabase, STORAGE_BUCKET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 from ingest.toc_chunk import fetch_pdf_from_storage
 
@@ -316,7 +316,7 @@ if st.session_state.pdf_doc is not None:
                 if st.button("Submit Answer", type="primary"):
                     if answer.strip():
                         with st.spinner("Evaluating..."):
-                            evaluation = evaluate_answer(
+                            evaluation = run_evaluation(
                                 document_id=st.session_state.selected_document_id,
                                 node_id=section['node_id'],
                                 question=question['question'],
@@ -345,7 +345,7 @@ if st.session_state.pdf_doc is not None:
                 if eval_data.get('criteria_scores'):
                     with st.expander("📋 Detailed Breakdown"):
                         for criterion in eval_data['criteria_scores']:
-                            st.markdown(f"**{criterion['criterion_title']}:** {criterion['score']}/2")
+                            st.markdown(f"**{criterion['id']}:** {criterion['score']}/2")
                             st.caption(criterion['feedback'])
                 
                 # Reset button

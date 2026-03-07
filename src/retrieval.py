@@ -38,10 +38,8 @@ def build_tree(flat_nodes: List[dict]) -> List[dict]:
     if not flat_nodes:
         return []
     
-    nodes = sorted(flat_nodes, key=lambda x: (x['page_start'], x['level']))
-    
-    for node in nodes:
-        node['children'] = []
+    # Copy dicts to avoid mutating the original Supabase response objects
+    nodes = sorted([{**n, 'children': []} for n in flat_nodes], key=lambda x: (x['page_start'], x['level']))
     
     root_nodes = []
     stack = []
@@ -125,17 +123,18 @@ def get_section_content(
     
     # 2. Determine which nodes to include
     if include_children:
-        # Get all descendants (subsections)
-        all_nodes = supabase.table("toc_nodes") \
+        # Fetch descendants: strictly higher level within the section's page range.
+        # Using gt("level") excludes same-level siblings that happen to share the page range.
+        descendants = supabase.table("toc_nodes") \
             .select("id") \
             .eq("document_id", document_id) \
             .gte("page_start", node["page_start"]) \
             .lte("page_end", node["page_end"]) \
-            .gte("level", node["level"]) \
+            .gt("level", node["level"]) \
             .execute() \
             .data
-        
-        toc_node_ids = [n["id"] for n in all_nodes]
+
+        toc_node_ids = [node["id"]] + [n["id"] for n in descendants]
     else:
         toc_node_ids = [node["id"]]
     

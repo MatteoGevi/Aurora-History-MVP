@@ -112,13 +112,18 @@ def get_section_content(
         >>> # Now generate questions from content['text']
     """
     # 1. Get the ToC node
-    node_result = supabase.table("toc_nodes") \
-        .select("*") \
-        .eq("document_id", document_id) \
-        .eq("node_id", node_id) \
-        .single() \
-        .execute()
-    
+    try:
+        node_result = supabase.table("toc_nodes") \
+            .select("*") \
+            .eq("document_id", document_id) \
+            .eq("node_id", node_id) \
+            .single() \
+            .execute()
+    except Exception as e:
+        if "PGRST116" in str(e):
+            raise ValueError(f"Node '{node_id}' not found. Check the node_id from the ToC above.") from None
+        raise
+
     node = node_result.data
     
     # 2. Determine which nodes to include

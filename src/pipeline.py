@@ -5,6 +5,13 @@ from typing import Dict
 from src.retrieval import get_section_content
 from src.guardrailed_grader import grade_with_guardrails, Grade, MAX_SCORE
 
+# The fixed recall prompt shown to the grader as the "question".
+# The user never sees this — it's the grader's framing for what a good answer looks like.
+_RECALL_PROMPT = (
+    "Describe the key content, main concepts, and important details of this section "
+    "as thoroughly as you can from memory."
+)
+
 
 def _truncate_at_boundary(text: str, max_chars: int) -> str:
     """Truncate at a paragraph or sentence boundary, not mid-sentence."""
@@ -32,35 +39,33 @@ def _make_ollama_adapter():
     return call_llm
 
 
-def run_evaluation(
+def run_section_recall(
     document_id: str,
     node_id: str,
-    question: str,
-    student_answer: str,
+    student_recall: str,
     max_retries: int = 1,
 ) -> Dict:
     """
-    Full evaluation pipeline for Aurora.
+    Core Aurora flow: user selects a ToC section, writes a free recall of its
+    content, and the LLM scores it against the actual section text.
 
     Args:
         document_id:    UUID of the document in Supabase
-        node_id:        ToC node the student chose to study
-        question:       The question being answered (generated or free-form)
-        student_answer: Raw text the student typed
+        node_id:        ToC node the user chose to be tested on
+        student_recall: Free-form text the user wrote from memory
         max_retries:    How many times to retry if LLM returns invalid JSON
 
     Returns:
         {
-            "total_score":      int   (0–10),
-            "max_score":        int   (10),
-            "percentage":       float (0–100),
-            "overall_feedback": str,
-            "criteria_scores":  List[{"id", "score", "feedback"}],
-            "citations":        List[str],
-            "performance_level": str,
-            "interpretation":   str,
-            "section_title":    str,
-            "page_range":       str,
+            "total_score":       int   (0–10),
+            "max_score":         int   (10),
+            "percentage":        float (0–100),
+            "overall_feedback":  str,
+            "criteria_scores":   List[{"id", "score", "feedback"}],
+            "performance_level": str,   # "Mastery" / "Proficient" / "Needs Review"
+            "interpretation":    str,
+            "section_title":     str,
+            "page_range":        str,
         }
     """
     content = get_section_content(document_id, node_id, include_children=True)
@@ -69,8 +74,8 @@ def run_evaluation(
     call_llm = _make_ollama_adapter()
 
     grade: Grade = grade_with_guardrails(
-        question=question,
-        student_answer=student_answer,
+        question=_RECALL_PROMPT,
+        student_answer=student_recall,
         context=context_text,
         call_llm=call_llm,
         max_retries=max_retries,
@@ -87,7 +92,6 @@ def run_evaluation(
             {"id": cs.criterion_id, "score": cs.score, "feedback": cs.feedback}
             for cs in grade.criteria_scores
         ],
-        "citations":         grade.citations,
         "performance_level": grade.performance_level,
         "interpretation":    grade.interpretation,
         "section_title":     content["section"]["title"],
@@ -97,8 +101,7 @@ def run_evaluation(
 
 def run_quick_check(
     context_text: str,
-    question: str,
-    student_answer: str,
+    student_recall: str,
 ) -> Grade:
     """
     Lightweight version — pass context directly (no DB call).
@@ -108,8 +111,8 @@ def run_quick_check(
     """
     call_llm = _make_ollama_adapter()
     return grade_with_guardrails(
-        question=question,
-        student_answer=student_answer,
+        question=_RECALL_PROMPT,
+        student_answer=student_recall,
         context=context_text,
         call_llm=call_llm,
     )
@@ -121,13 +124,12 @@ def run_quick_check(
 if __name__ == "__main__":
     import sys
 
-    print("Aurora — Assessment CLI")
+    print("Aurora — Section Recall Assessment")
     print("=" * 60)
 
     # ── Try full DB-connected flow ──────────────────────────────
     try:
         from src.retrieval import get_document_list, get_document_toc
-        from src.assessment import generate_questions
 
         docs = get_document_list()
         if not docs:
@@ -154,34 +156,25 @@ if __name__ == "__main__":
         toc = get_document_toc(document_id)
         _print_toc(toc)
 
-        node_id = input("\nPaste node_id to study: ").strip()
+        node_id = input("\nPaste node_id to be tested on: ").strip()
 
-        print("\nGenerating questions...")
-        result = generate_questions(document_id, node_id, num_questions=3)
+        print("\nWrite everything you remember about this section.")
+        print("Press Enter twice when done.\n")
+        lines = []
+        while True:
+            line = input()
+            if line == "" and lines and lines[-1] == "":
+                break
+            lines.append(line)
+        # strip the trailing blank line used as sentinel
+        student_recall = "\n".join(lines).rstrip()
 
-        if not result["questions"]:
-            print("No questions generated. Check that Ollama is running and the model is loaded.")
-            sys.exit(1)
-
-        section_info = result["section_info"]
-        print(f"\nSection: {section_info['title']}  (p.{section_info['page_range']})")
-        print("-" * 60)
-        for i, q in enumerate(result["questions"]):
-            print(f"  Q{i + 1} [{q['difficulty']}]: {q['question']}")
-
-        raw = input("\nSelect question to answer [0]: ").strip()
-        q_idx = int(raw) if raw else 0
-        question = result["questions"][q_idx]["question"]
-
-        print(f"\nQuestion: {question}")
-        student_answer = input("Your answer: ").strip()
-
-        if not student_answer:
-            print("No answer provided.")
+        if not student_recall:
+            print("Nothing written.")
             sys.exit(1)
 
         print("\nGrading...")
-        ev = run_evaluation(document_id, node_id, question, student_answer)
+        ev = run_section_recall(document_id, node_id, student_recall)
 
         print(f"\n{'=' * 60}")
         print(f"RESULT  —  {ev['section_title']}  (p.{ev['page_range']})")
@@ -192,8 +185,6 @@ if __name__ == "__main__":
         print("\nPer-criterion breakdown:")
         for cs in ev["criteria_scores"]:
             print(f"  {cs['id']}: {cs['score']}/2  —  {cs['feedback']}")
-        if ev["citations"]:
-            print(f"\nCitations: {', '.join(ev['citations'])}")
 
     # ── Fallback: quick check with hardcoded sample ─────────────
     except Exception as exc:
@@ -208,8 +199,7 @@ if __name__ == "__main__":
 
         grade = run_quick_check(
             context_text=sample_context,
-            question="Explain Newton's Second Law and its implications.",
-            student_answer=(
+            student_recall=(
                 "Newton's second law says that force equals mass times acceleration. "
                 "So if you push something heavier, it moves slower."
             ),

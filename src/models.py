@@ -1,5 +1,8 @@
 import ollama
+import anthropic
 from config.constants import MODEL_NAME, MODEL_TEMPERATURE, MODEL_MAX_TOKENS
+
+CLAUDE_MODEL = "claude-opus-4-6"
 
 
 def check_ollama():
@@ -54,3 +57,24 @@ def generate_chat(system: str, user: str, max_tokens: int = None, temperature: f
         options={'temperature': temperature, 'num_predict': max_tokens}
     )
     return response['message']['content']
+
+
+def generate_chat_claude(system: str, user: str, max_tokens: int = 2500) -> str:
+    """Generate with Claude API (claude-opus-4-6) using system/user role separation.
+
+    Faster and more reliable than Ollama for structured JSON tasks like grading.
+    Requires ANTHROPIC_API_KEY in the environment.
+    """
+    client = anthropic.Anthropic()
+    kwargs = {
+        "model": CLAUDE_MODEL,
+        "max_tokens": max_tokens,
+        "messages": [{"role": "user", "content": user}],
+    }
+    if system and system.strip():
+        kwargs["system"] = system
+
+    with client.messages.stream(**kwargs) as stream:
+        response = stream.get_final_message()
+
+    return next(b.text for b in response.content if b.type == "text")

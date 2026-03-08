@@ -19,7 +19,11 @@ with open(_RUBRIC_PATH) as _f:
 
 # Pre-build a lookup: criterion_id -> criterion dict
 CRITERIA_BY_ID = {c["id"]: c for c in RUBRIC_DEF["criteria"]}
-MAX_SCORE = RUBRIC_DEF["total_score"]  # 10
+# Computed from rubric so it stays correct if criteria or weights change
+MAX_SCORE = sum(
+    max(lvl["score"] for lvl in c["levels"]) * c.get("weight", 1)
+    for c in RUBRIC_DEF["criteria"]
+)
 
 
 # ──────────────────────────────────────────────
@@ -54,7 +58,10 @@ class Grade(BaseModel):
     # ── Derived properties ──────────────────────
     @property
     def total_score(self) -> int:
-        return sum(c.score for c in self.criteria_scores)
+        return sum(
+            cs.score * CRITERIA_BY_ID[cs.criterion_id].get("weight", 1)
+            for cs in self.criteria_scores
+        )
 
     @property
     def percentage(self) -> float:
@@ -62,19 +69,19 @@ class Grade(BaseModel):
 
     @property
     def performance_level(self) -> str:
-        s = self.total_score
-        if s >= 9:
+        pct = self.percentage
+        if pct >= 90:
             return "Mastery"
-        elif s >= 6:
+        elif pct >= 60:
             return "Proficient"
         return "Needs Review"
 
     @property
     def interpretation(self) -> str:
-        s = self.total_score
-        if s >= 9:
+        pct = self.percentage
+        if pct >= 90:
             return RUBRIC_DEF["interpretation"]["9-10"]
-        elif s >= 6:
+        elif pct >= 60:
             return RUBRIC_DEF["interpretation"]["6-8"]
         return RUBRIC_DEF["interpretation"]["0-5"]
 

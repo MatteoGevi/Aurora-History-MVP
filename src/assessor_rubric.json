@@ -85,21 +85,21 @@
     },
     {
       "id": "C5",
-      "title": "Citation/linking to source content",
-      "description": "Does the answer show that it is grounded in the retrieved textbook section and map to relevant chunks/pages?",
+      "title": "Depth of understanding and application",
+      "description": "Does the answer go beyond surface-level recall — explaining why/how things work, connecting ideas, or applying the concept to an example?",
       "weight": 1,
       "levels": [
         {
           "score": 0,
-          "description": "No indication of where section content was used; lacks supporting evidence."
+          "description": "Only restates definitions or facts verbatim; no explanation of mechanisms or connections between ideas."
         },
         {
           "score": 1,
-          "description": "Some indication of source material; uses some relevant parts of the section but not clearly grounded."
+          "description": "Shows some understanding beyond recall; partial explanation of why/how, or limited connection between concepts."
         },
         {
           "score": 2,
-          "description": "Strong linkage: answer clearly grounded in retrieved section content and shows how that content supports the answer."
+          "description": "Demonstrates clear understanding: explains mechanisms, draws meaningful connections, or applies concepts beyond surface recall."
         }
       ]
     }

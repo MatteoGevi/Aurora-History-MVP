@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import anthropic
 from typing import Dict
 
 from src.retrieval import get_section_content
@@ -26,8 +25,12 @@ def _truncate_at_boundary(text: str, max_chars: int) -> str:
     return text[:cut] + "\n\n[...content truncated...]"
 
 
-def _make_claude_adapter():
-    """Returns a callable (system: str, user: str) -> str using Ollama. Kept for local/offline use."""
+def _make_ollama_adapter():
+    """
+    Returns a callable (system: str, user: str) -> str
+    that guardrailed_grader expects as `call_llm`.
+    Uses Ollama's chat API for proper system/user role separation.
+    """
     from src.models import generate_chat
 
     def call_llm(system: str, user: str) -> str:
@@ -36,14 +39,15 @@ def _make_claude_adapter():
     return call_llm
 
 
-def _make_claude_adapter():
-    """Returns a callable (system: str, user: str) -> str using Claude API.
-    Default assessor — faster and more reliable than Ollama for structured grading.
+def _make_openai_adapter():
     """
-    from src.models import generate_chat_claude
+    Returns a callable (system: str, user: str) -> str backed by the OpenAI API.
+    Drop-in replacement for _make_ollama_adapter() for the grader.
+    """
+    from src.models import generate_chat_openai
 
     def call_llm(system: str, user: str) -> str:
-        return generate_chat_claude(system, user, max_tokens=2500)
+        return generate_chat_openai(system, user, max_tokens=2500, temperature=0.2)
 
     return call_llm
 
@@ -80,7 +84,7 @@ def run_section_recall(
     content = get_section_content(document_id, node_id, include_children=True)
     context_text = _truncate_at_boundary(content["text"], max_chars=5000)
 
-    call_llm = _make_claude_adapter()
+    call_llm = _make_openai_adapter()
 
     grade: Grade = grade_with_guardrails(
         question=_RECALL_PROMPT,
@@ -118,7 +122,7 @@ def run_quick_check(
 
     Returns a Grade object; call .to_dict() to get a flat dict for display.
     """
-    call_llm = _make_claude_adapter()
+    call_llm = _make_openai_adapter()
     return grade_with_guardrails(
         question=_RECALL_PROMPT,
         student_answer=student_recall,
@@ -198,8 +202,9 @@ if __name__ == "__main__":
         # e.g. node_id not found
         print(f"\nError: {exc}")
         sys.exit(1)
-    except anthropic.APIConnectionError:
-        print("\nCannot reach Claude API. Check your ANTHROPIC_API_KEY in .env")
+    except ConnectionError:
+        print("\nCannot reach Ollama. Start it with:  ollama serve")
+        print("Then make sure your model is pulled:  ollama pull <model-name>")
         sys.exit(1)
 
     print(f"\n{'=' * 60}")

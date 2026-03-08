@@ -1,8 +1,6 @@
 import ollama
-import anthropic
-from config.constants import MODEL_NAME, MODEL_TEMPERATURE, MODEL_MAX_TOKENS
-
-CLAUDE_MODEL = "claude-opus-4-6"
+import openai
+from config.constants import MODEL_NAME, MODEL_TEMPERATURE, MODEL_MAX_TOKENS, OPENAI_API_KEY, OPENAI_MODEL_NAME
 
 
 def check_ollama():
@@ -59,22 +57,23 @@ def generate_chat(system: str, user: str, max_tokens: int = None, temperature: f
     return response['message']['content']
 
 
-def generate_chat_claude(system: str, user: str, max_tokens: int = 2500) -> str:
-    """Generate with Claude API (claude-opus-4-6) using system/user role separation.
+def generate_chat_openai(system: str, user: str, max_tokens: int = None, temperature: float = None) -> str:
+    """Generate with explicit system/user separation using the OpenAI chat API."""
+    if max_tokens is None:
+        max_tokens = MODEL_MAX_TOKENS
+    if temperature is None:
+        temperature = MODEL_TEMPERATURE
 
-    Faster and more reliable than Ollama for structured JSON tasks like grading.
-    Requires ANTHROPIC_API_KEY in the environment.
-    """
-    client = anthropic.Anthropic()
-    kwargs = {
-        "model": CLAUDE_MODEL,
-        "max_tokens": max_tokens,
-        "messages": [{"role": "user", "content": user}],
-    }
-    if system and system.strip():
-        kwargs["system"] = system
+    client = openai.OpenAI(api_key=OPENAI_API_KEY)
+    messages = []
+    if system.strip():
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": user})
 
-    with client.messages.stream(**kwargs) as stream:
-        response = stream.get_final_message()
-
-    return next(b.text for b in response.content if b.type == "text")
+    response = client.chat.completions.create(
+        model=OPENAI_MODEL_NAME,
+        messages=messages,
+        max_tokens=max_tokens,
+        temperature=temperature,
+    )
+    return response.choices[0].message.content

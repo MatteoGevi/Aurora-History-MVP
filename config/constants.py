@@ -38,3 +38,7 @@ MODEL_NAME = "mistral"
 MODEL_QUANTIZATION = "4bit"
 MODEL_TEMPERATURE = 0.4  # Lower = more focused, Higher = more creative
 MODEL_MAX_TOKENS = 2048
+
+# OpenAI
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+OPENAI_MODEL_NAME = "gpt-4o-mini"

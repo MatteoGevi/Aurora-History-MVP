@@ -172,7 +172,9 @@ def display_db_toc(document_id: str, pdf_doc):
             button_label = f"{indent}{node['title']}"
             
             if st.button(button_label, key=f"toc_{node['node_id']}", use_container_width=True):
-                st.session_state.current_page = node['page_start'] - 1
+                target_page = node['page_start'] - 1
+                st.session_state.current_page = target_page
+                st.session_state.page_input_widget = target_page + 1
                 st.session_state.assessment_mode = False  # Just navigate, don't start assessment
                 st.rerun()
             
@@ -271,6 +273,7 @@ if st.session_state.pdf_doc is not None:
         with nav_col1:
             if st.button("⬅️ Previous", key="prev_page", disabled=st.session_state.current_page == 0):
                 st.session_state.current_page -= 1
+                st.session_state.page_input_widget = st.session_state.current_page + 1
                 st.rerun()
         with nav_col2:
             total_pages = len(st.session_state.pdf_doc)
@@ -278,6 +281,7 @@ if st.session_state.pdf_doc is not None:
         with nav_col3:
             if st.button("Next ➡️", key="next_page", disabled=st.session_state.current_page >= len(st.session_state.pdf_doc) - 1):
                 st.session_state.current_page += 1
+                st.session_state.page_input_widget = st.session_state.current_page + 1
                 st.rerun()
     
     # Column 3: Chat/Assessment Interface

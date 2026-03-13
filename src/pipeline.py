@@ -112,6 +112,49 @@ def run_section_recall(
     }
 
 
+def run_evaluation(
+    document_id: str,
+    node_id: str,
+    question: str,
+    student_answer: str,
+    max_retries: int = 1,
+) -> Dict:
+    """
+    Evaluate a student's answer to a specific question against the section content.
+
+    Returns the same dict format as run_section_recall.
+    """
+    content = get_section_content(document_id, node_id, include_children=True)
+    context_text = _truncate_at_boundary(content["text"], max_chars=5000)
+
+    call_llm = _make_openai_adapter()
+
+    grade: Grade = grade_with_guardrails(
+        question=question,
+        student_answer=student_answer,
+        context=context_text,
+        call_llm=call_llm,
+        max_retries=max_retries,
+        allow_repair=True,
+        repair_llm=call_llm,
+    )
+
+    return {
+        "total_score":       grade.total_score,
+        "max_score":         MAX_SCORE,
+        "percentage":        grade.percentage,
+        "overall_feedback":  grade.overall_feedback,
+        "criteria_scores": [
+            {"id": cs.criterion_id, "score": cs.score, "feedback": cs.feedback}
+            for cs in grade.criteria_scores
+        ],
+        "performance_level": grade.performance_level,
+        "interpretation":    grade.interpretation,
+        "section_title":     content["section"]["title"],
+        "page_range":        content["page_range"],
+    }
+
+
 def run_quick_check(
     context_text: str,
     student_recall: str,

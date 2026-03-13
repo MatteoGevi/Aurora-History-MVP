@@ -140,7 +140,8 @@ def get_pdf_from_storage(document_id: str) -> tuple:
         
     except Exception as e:
         st.error(f"Error loading PDF from storage: {e}")
-        st.info(f"Tried to load: {filename} from bucket '{STORAGE_BUCKET}'")
+        filename_display = locals().get('filename', '<unknown>')
+        st.info(f"Tried to load: {filename_display} from bucket '{STORAGE_BUCKET}'")
         
         # Try to list available files
         try:

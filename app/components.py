@@ -49,29 +49,19 @@ def display_toc(toc):
 def display_chat():
     """Display chat interface"""
     st.markdown("### 💬 Learning Assistant")
-    
+
     # Display chat history
     chat_container = st.container()
     with chat_container:
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
                 st.write(message["content"])
-    
+
     # Chat input
-    if prompt := st.chat_input("Insert your answer for this specific topic..."):
-        # Add user message
+    if prompt := st.chat_input("Ask a question or discuss the current section..."):
         st.session_state.messages.append({"role": "user", "content": prompt})
-        
-        # Generate response (placeholder for now)
-        current_section = "the selected section"
-        if st.session_state.toc and st.session_state.current_page < len(st.session_state.pdf_doc):
-            # Find current section based on page
-            for item in reversed(st.session_state.toc):
-                if item[2] - 1 <= st.session_state.current_page:
-                    current_section = item[1]
-                    break
-        
-        response = f"I see you're on {current_section}. This is a placeholder response. Your SML model will be integrated here to provide intelligent feedback based on the user's answer and the current section context."
-        
+
+        response = "This is a placeholder response. Your model will be integrated here to provide intelligent feedback based on the current section context."
+
         st.session_state.messages.append({"role": "assistant", "content": response})
         st.rerun()

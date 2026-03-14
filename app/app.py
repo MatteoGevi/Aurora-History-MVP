@@ -6,6 +6,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+import anthropic
 import streamlit as st
 import pymupdf as fitz
 from PIL import Image
@@ -290,13 +291,27 @@ if st.session_state.pdf_doc is not None:
                 if st.button("Submit", type="primary"):
                     if recall.strip():
                         with st.spinner("Evaluating..."):
-                            result = run_section_recall(
-                                document_id=st.session_state.selected_document_id,
-                                node_id=section['node_id'],
-                                student_recall=recall
-                            )
-                            st.session_state.evaluation_result = result
-                            st.rerun()
+                            try:
+                                result = run_section_recall(
+                                    document_id=st.session_state.selected_document_id,
+                                    node_id=section['node_id'],
+                                    student_recall=recall
+                                )
+                                st.session_state.evaluation_result = result
+                                st.rerun()
+                            except anthropic.AuthenticationError:
+                                st.error("Invalid Claude API key. Check CLAUDE_API_KEY in your .env.")
+                            except anthropic.BadRequestError as e:
+                                if "credit" in str(e).lower():
+                                    st.error("Insufficient Claude API credits. Top up at console.anthropic.com.")
+                                else:
+                                    st.error(f"Claude API request error: {e}")
+                            except anthropic.APIConnectionError:
+                                st.error("Could not reach the Claude API. Check your internet connection.")
+                            except anthropic.RateLimitError:
+                                st.error("Claude API rate limit hit. Wait a moment and try again.")
+                            except ValueError as e:
+                                st.error(f"Grader failed to parse a valid response after retries: {e}")
                     else:
                         st.warning("Please write something before submitting")
             else:

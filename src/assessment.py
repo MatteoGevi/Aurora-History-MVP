@@ -1,7 +1,7 @@
 # src/assessment.py
 import json
 from typing import List, Dict
-from src.models import generate
+from src.models import generate_chat_openai
 from src.retrieval import get_section_content
 
 
@@ -49,7 +49,7 @@ Generate {num_questions} {difficulty} questions. Return ONLY a JSON array:
     last_err = None
 
     for attempt in range(max_retries + 1):
-        response = generate(prompt, max_tokens=2000, temperature=0.5)
+        response = generate_chat_openai("You are an expert educator creating assessment questions.", prompt, max_tokens=2000, temperature=0.5)
         try:
             start = response.find('[')
             end = response.rfind(']') + 1

@@ -12,10 +12,9 @@ from PIL import Image
 import io
 from typing import List
 
-from components import render_pdf_page, display_chat
+from components import render_pdf_page
 from src.retrieval import get_document_list, get_document_toc as get_db_toc, get_section_content
-from src.assessment import generate_questions
-from src.pipeline import run_evaluation
+from src.pipeline import run_section_recall
 from config.constants import supabase, STORAGE_BUCKET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 from ingest.toc_chunk import fetch_pdf_from_storage
 
@@ -71,8 +70,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Initialize session state
-if 'messages' not in st.session_state:
-    st.session_state.messages = []
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 0
 if 'pdf_doc' not in st.session_state:
@@ -81,15 +78,8 @@ if 'selected_document_id' not in st.session_state:
     st.session_state.selected_document_id = None
 if 'show_toc' not in st.session_state:
     st.session_state.show_toc = True
-# Assessment mode
-if 'assessment_mode' not in st.session_state:
-    st.session_state.assessment_mode = False
 if 'selected_section' not in st.session_state:
     st.session_state.selected_section = None
-if 'questions' not in st.session_state:
-    st.session_state.questions = []
-if 'current_answer' not in st.session_state:
-    st.session_state.current_answer = ""
 if 'evaluation_result' not in st.session_state:
     st.session_state.evaluation_result = None
 
@@ -167,17 +157,16 @@ def display_db_toc(document_id: str, pdf_doc):
     def render_toc_node(nodes, level=0):
         for node in nodes:
             indent = "　" * level  # Use full-width space for visual indent
-            
-            # Single clickable button for the entire section
             button_label = f"{indent}{node['title']}"
-            
+
             if st.button(button_label, key=f"toc_{node['node_id']}", use_container_width=True):
                 target_page = node['page_start'] - 1
                 st.session_state.current_page = target_page
                 st.session_state.page_input_widget = target_page + 1
-                st.session_state.assessment_mode = False  # Just navigate, don't start assessment
+                st.session_state.selected_section = node
+                st.session_state.evaluation_result = None
                 st.rerun()
-            
+
             # Render children recursively
             if node.get('children'):
                 render_toc_node(node['children'], level + 1)
@@ -284,86 +273,57 @@ if st.session_state.pdf_doc is not None:
                 st.session_state.page_input_widget = st.session_state.current_page + 1
                 st.rerun()
     
-    # Column 3: Chat/Assessment Interface
+    # Column 3: Assessment Interface
     with col3:
-        # Show assessment if in assessment mode
-        if st.session_state.assessment_mode and st.session_state.selected_section:
-            st.markdown("### 📝 Assessment")
-            
+        if st.session_state.selected_section:
             section = st.session_state.selected_section
-            st.info(f"**Section:** {section['title']}\n\n**Pages:** {section['page_start']}-{section['page_end']}")
-            
-            # Step 1: Generate questions
-            if not st.session_state.questions:
-                num_q = st.slider("Number of questions:", 1, 5, 3)
-                difficulty = st.selectbox("Difficulty:", ["easy", "medium", "hard", "mixed"])
-                
-                if st.button("🎲 Generate Questions", type="primary"):
-                    with st.spinner("Generating..."):
-                        result = generate_questions(
-                            document_id=st.session_state.selected_document_id,
-                            node_id=section['node_id'],
-                            num_questions=num_q,
-                            difficulty=difficulty
-                        )
-                        st.session_state.questions = result.get('questions', [])
-                        st.rerun()
-            
-            # Step 2: Answer question
-            elif st.session_state.questions and not st.session_state.evaluation_result:
-                question = st.session_state.questions[0]
-                
-                st.markdown(f"**Question:**\n{question['question']}")
-                st.caption(f"Difficulty: {question.get('difficulty')} • Pages: {question.get('page_reference')}")
-                
-                answer = st.text_area("Your Answer:", height=150, key="answer_input")
-                
-                if st.button("Submit Answer", type="primary"):
-                    if answer.strip():
+            st.markdown("### 📝 Assessment")
+            st.info(f"**Section:** {section['title']}  •  Pages {section['page_start']}–{section['page_end']}")
+
+            if not st.session_state.evaluation_result:
+                recall = st.text_area(
+                    "Write everything you remember about this section:",
+                    height=250,
+                    key="recall_input",
+                    placeholder="Type your free recall here..."
+                )
+                if st.button("Submit", type="primary"):
+                    if recall.strip():
                         with st.spinner("Evaluating..."):
-                            evaluation = run_evaluation(
+                            result = run_section_recall(
                                 document_id=st.session_state.selected_document_id,
                                 node_id=section['node_id'],
-                                question=question['question'],
-                                student_answer=answer
+                                student_recall=recall
                             )
-                            st.session_state.evaluation_result = evaluation
+                            st.session_state.evaluation_result = result
                             st.rerun()
                     else:
-                        st.warning("Please enter an answer")
-            
-            # Step 3: Show results
+                        st.warning("Please write something before submitting")
             else:
                 eval_data = st.session_state.evaluation_result
-                
                 st.markdown("### 📊 Results")
-                
+
                 score = eval_data.get('total_score', 0)
                 max_score = eval_data.get('max_score', 10)
-                percentage = (score / max_score * 100) if max_score > 0 else 0
-                
-                st.metric("Score", f"{score}/{max_score} ({percentage:.0f}%)")
-                
+                st.metric("Score", f"{score}/{max_score} ({eval_data.get('percentage', 0):.0f}%)",
+                          delta=eval_data.get('performance_level'))
+
                 if eval_data.get('overall_feedback'):
                     st.info(f"💡 {eval_data['overall_feedback']}")
-                
+
                 if eval_data.get('criteria_scores'):
                     with st.expander("📋 Detailed Breakdown"):
                         for criterion in eval_data['criteria_scores']:
                             st.markdown(f"**{criterion['id']}:** {criterion['score']}/2")
                             st.caption(criterion['feedback'])
-                
-                # Reset button
+
                 if st.button("Try Another Section"):
-                    st.session_state.assessment_mode = False
                     st.session_state.selected_section = None
-                    st.session_state.questions = []
                     st.session_state.evaluation_result = None
                     st.rerun()
-        
         else:
-            # Original chat interface
-            display_chat()
+            st.markdown("### 📝 Assessment")
+            st.info("Select a section from the Table of Contents to begin your recall assessment.")
 
 else:
     st.info("👆 Please select a document to get started")

@@ -29,33 +29,64 @@ st.set_page_config(
 # Custom CSS
 st.markdown("""
     <style>
-    .toc-container {
-        height: 70vh;
+    /* Dark ToC column background */
+    [data-testid="column"]:first-of-type {
+        background-color: #1a1f2e;
+        border-radius: 10px;
+        padding: 12px 4px;
+        height: 80vh;
         overflow-y: auto;
-        padding: 10px;
-        border-radius: 8px;
-        background-color: #f8f9fa;
     }
-    .toc-item {
-        padding: 8px;
-        margin: 4px 0;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: background-color 0.2s;
-    }
-    .toc-item:hover {
-        background-color: #e9ecef;
-    }
-    .stButton>button {
+
+    /* Flat, left-aligned ToC buttons */
+    [data-testid="column"]:first-of-type .stButton>button {
         width: 100%;
         text-align: left;
         border: none;
         background-color: transparent;
-        padding: 8px 12px;
+        color: #b0b8cc;
+        border-radius: 5px;
+        padding: 5px 10px;
+        font-size: 0.82rem;
+        line-height: 1.4;
+        white-space: normal;
+        word-break: break-word;
+        transition: background-color 0.15s, color 0.15s;
+        box-shadow: none !important;
     }
-    .stButton>button:hover {
-        background-color: #e9ecef;
+    [data-testid="column"]:first-of-type .stButton>button:hover {
+        background-color: #252d42;
+        color: #e8ecf4;
     }
+    [data-testid="column"]:first-of-type .stButton>button:focus {
+        box-shadow: none !important;
+        border: none !important;
+    }
+
+    /* Active / selected ToC item */
+    .toc-item-active {
+        background-color: #2e3a5c;
+        color: #ffffff;
+        border-radius: 5px;
+        padding: 5px 10px;
+        margin: 1px 0;
+        font-size: 0.82rem;
+        font-weight: 600;
+        line-height: 1.4;
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    /* Section header label above ToC */
+    .toc-heading {
+        color: #7a859e;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 8px 10px 4px 10px;
+    }
+
     .chat-container {
         height: 70vh;
         overflow-y: auto;
@@ -81,6 +112,10 @@ if 'selected_document_id' not in st.session_state:
     st.session_state.selected_document_id = None
 if 'show_toc' not in st.session_state:
     st.session_state.show_toc = True
+if 'expanded_nodes' not in st.session_state:
+    st.session_state.expanded_nodes = set()
+if 'active_node_id' not in st.session_state:
+    st.session_state.active_node_id = None
 # Assessment mode
 if 'assessment_mode' not in st.session_state:
     st.session_state.assessment_mode = False
@@ -154,35 +189,63 @@ def get_pdf_from_storage(document_id: str) -> tuple:
         
         return None, None
 
-def display_db_toc(document_id: str, pdf_doc):
-    """Display ToC from database as clickable tree"""
-    st.markdown("### 📚 Table of Contents")
-    
-    toc = get_db_toc(document_id)
-    
-    if not toc:
-        st.info("No table of contents found")
-        return
-    
-    def render_toc_node(nodes, level=0):
-        for node in nodes:
-            indent = "　" * level  # Use full-width space for visual indent
-            
-            # Single clickable button for the entire section
-            button_label = f"{indent}{node['title']}"
-            
-            if st.button(button_label, key=f"toc_{node['node_id']}", use_container_width=True):
+def _render_toc_node(nodes, depth=0):
+    """Recursively render ToC nodes with expand/collapse and active highlighting."""
+    for node in nodes:
+        nid = node['node_id']
+        has_children = bool(node.get('children'))
+        is_expanded = nid in st.session_state.expanded_nodes
+        is_active = nid == st.session_state.active_node_id
+
+        indent = "　" * depth  # full-width space for indentation
+
+        if has_children:
+            arrow = "▾ " if is_expanded else "▸ "
+            label = f"{indent}{arrow}{node['title']}"
+        else:
+            label = f"{indent}  {node['title']}"
+
+        if is_active:
+            st.markdown(
+                f'<div class="toc-item-active">{label}</div>',
+                unsafe_allow_html=True
+            )
+        else:
+            if st.button(label, key=f"toc_{nid}", use_container_width=True):
+                # Toggle expand/collapse for parent nodes
+                if has_children:
+                    if is_expanded:
+                        st.session_state.expanded_nodes.discard(nid)
+                    else:
+                        st.session_state.expanded_nodes.add(nid)
+                # Navigate to page
                 target_page = node['page_start'] - 1
                 st.session_state.current_page = target_page
                 st.session_state.page_input_widget = target_page + 1
-                st.session_state.assessment_mode = False  # Just navigate, don't start assessment
+                st.session_state.active_node_id = nid
+                st.session_state.assessment_mode = False
                 st.rerun()
-            
-            # Render children recursively
-            if node.get('children'):
-                render_toc_node(node['children'], level + 1)
-    
-    render_toc_node(toc)
+
+        if has_children and is_expanded:
+            _render_toc_node(node['children'], depth + 1)
+
+
+def display_db_toc(document_id: str, pdf_doc):
+    """Display ToC from database as an expandable/collapsible tree."""
+    st.markdown('<div class="toc-heading">Contents</div>', unsafe_allow_html=True)
+
+    toc = get_db_toc(document_id)
+
+    if not toc:
+        st.info("No table of contents found")
+        return
+
+    # Auto-expand level-1 nodes on first load for this document
+    if not st.session_state.expanded_nodes:
+        for node in toc:
+            st.session_state.expanded_nodes.add(node['node_id'])
+
+    _render_toc_node(toc, depth=0)
 
 # Main app header
 col_title, col_toggle = st.columns([4, 1])
@@ -221,6 +284,8 @@ if selected_doc_id != st.session_state.selected_document_id:
             st.session_state.pdf_doc = doc
             st.session_state.selected_document_id = selected_doc_id
             st.session_state.current_page = 0
+            st.session_state.expanded_nodes = set()
+            st.session_state.active_node_id = None
             st.success(f"✅ Loaded: {title}")
             st.rerun()
 

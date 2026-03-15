@@ -42,3 +42,7 @@ MODEL_MAX_TOKENS = 2048
 # OpenAI
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 OPENAI_MODEL_NAME = "gpt-4o-mini"
+
+# Anthropic / Claude
+CLAUDE_API_KEY = os.environ.get("CLAUDE_API_KEY")
+CLAUDE_MODEL_NAME = "claude-haiku-4-5"

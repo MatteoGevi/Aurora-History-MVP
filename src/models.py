@@ -1,6 +1,7 @@
 import ollama
 import openai
-from config.constants import MODEL_NAME, MODEL_TEMPERATURE, MODEL_MAX_TOKENS, OPENAI_API_KEY, OPENAI_MODEL_NAME
+import anthropic
+from config.constants import MODEL_NAME, MODEL_TEMPERATURE, MODEL_MAX_TOKENS, OPENAI_API_KEY, OPENAI_MODEL_NAME, CLAUDE_API_KEY, CLAUDE_MODEL_NAME
 
 
 def check_ollama():
@@ -77,3 +78,22 @@ def generate_chat_openai(system: str, user: str, max_tokens: int = None, tempera
         temperature=temperature,
     )
     return response.choices[0].message.content
+
+
+def generate_chat_claude(system: str, user: str, max_tokens: int = None, temperature: float = None) -> str:
+    """Generate with explicit system/user separation using the Anthropic Claude API."""
+    if max_tokens is None:
+        max_tokens = MODEL_MAX_TOKENS
+    if temperature is None:
+        temperature = MODEL_TEMPERATURE
+
+    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+
+    response = client.messages.create(
+        model=CLAUDE_MODEL_NAME,
+        max_tokens=max_tokens,
+        system=system,
+        messages=[{"role": "user", "content": user}],
+    )
+
+    return next(block.text for block in response.content if block.type == "text")

@@ -52,6 +52,18 @@ def _make_openai_adapter():
     return call_llm
 
 
+def _make_claude_adapter():
+    """
+    Returns a callable (system: str, user: str) -> str backed by the Anthropic Claude API.
+    """
+    from src.models import generate_chat_claude
+
+    def call_llm(system: str, user: str) -> str:
+        return generate_chat_claude(system, user, max_tokens=2500)
+
+    return call_llm
+
+
 def run_section_recall(
     document_id: str,
     node_id: str,
@@ -84,7 +96,7 @@ def run_section_recall(
     content = get_section_content(document_id, node_id, include_children=True)
     context_text = _truncate_at_boundary(content["text"], max_chars=5000)
 
-    call_llm = _make_openai_adapter()
+    call_llm = _make_claude_adapter()
 
     grade: Grade = grade_with_guardrails(
         question=_RECALL_PROMPT,
@@ -127,7 +139,7 @@ def run_evaluation(
     content = get_section_content(document_id, node_id, include_children=True)
     context_text = _truncate_at_boundary(content["text"], max_chars=5000)
 
-    call_llm = _make_openai_adapter()
+    call_llm = _make_claude_adapter()
 
     grade: Grade = grade_with_guardrails(
         question=question,
@@ -165,7 +177,7 @@ def run_quick_check(
 
     Returns a Grade object; call .to_dict() to get a flat dict for display.
     """
-    call_llm = _make_openai_adapter()
+    call_llm = _make_claude_adapter()
     return grade_with_guardrails(
         question=_RECALL_PROMPT,
         student_answer=student_recall,

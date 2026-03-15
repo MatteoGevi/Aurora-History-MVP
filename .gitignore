@@ -70,6 +70,10 @@ venv/
 # IDE
 .vscode/
 .idea/
+
+# Claude Code
+.claude/
+**/.claude/
 *.swp
 *.swo
 *~

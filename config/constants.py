@@ -23,7 +23,11 @@ if not SUPABASE_SERVICE_ROLE_KEY:
 if not SUPABASE_URL:
     raise ValueError("SUPABASE_URL not found in environment")
 
-supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+def get_supabase():
+    """Return a fresh Supabase client. Avoids stale connection errors on long-lived processes."""
+    return create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+supabase = get_supabase()
 
 # Models
 HUGGING_FACE_HUB_TOKEN = os.environ.get("HUGGING_FACE_HUB_TOKEN")

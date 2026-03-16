@@ -24,8 +24,14 @@ if not SUPABASE_URL:
     raise ValueError("SUPABASE_URL not found in environment")
 
 def get_supabase():
-    """Return a fresh Supabase client. Avoids stale connection errors on long-lived processes."""
+    """Return a fresh Supabase client with service role key (bypasses RLS). Use for admin/CLI ops."""
     return create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+def get_supabase_for_user(jwt_token: str):
+    """Return a Supabase client scoped to the authenticated user's JWT (respects RLS)."""
+    client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+    client.postgrest.auth(jwt_token)
+    return client
 
 supabase = get_supabase()
 

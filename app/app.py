@@ -84,9 +84,9 @@ def get_pdf_from_storage(document_id: str) -> tuple:
         # Use the existing fetch function from toc_chunk.py
         pdf_bytes = fetch_pdf_from_storage(
             supabase_url=SUPABASE_URL,
-            service_role_key=SUPABASE_SERVICE_ROLE_KEY,
+            auth_token=SUPABASE_SERVICE_ROLE_KEY,
             bucket=STORAGE_BUCKET,
-            filename=filename
+            filename=filename,
         )
         
         # Open with PyMuPDF

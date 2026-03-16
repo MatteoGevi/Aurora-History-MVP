@@ -9,19 +9,19 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter, SpacyTextSp
 
 def fetch_pdf_from_storage(
     supabase_url: str,
-    service_role_key: str,
+    auth_token: str,
     bucket: str,
     filename: str
 ) -> bytes:
     """
-    Fetch PDF from Supabase Storage using service_role key.
-    Works for private buckets.
+    Fetch PDF from Supabase Storage.
+    auth_token can be a service role key (bypasses RLS) or a user JWT (respects RLS).
     """
     auth_url = f"{supabase_url}/storage/v1/object/authenticated/{bucket}/{filename}"
-    
+
     headers = {
-        "apikey": service_role_key,
-        "Authorization": f"Bearer {service_role_key}"
+        "apikey": auth_token,
+        "Authorization": f"Bearer {auth_token}"
     }
     
     print(f"📥 Fetching PDF...")

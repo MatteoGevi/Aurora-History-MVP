@@ -210,36 +210,35 @@ if st.session_state.pdf_doc is not None:
         col1 = None
         col2, col3 = st.columns([2, 1.5])
     
-    # Column 1: Table of Contents
+    # Column 1: Page Navigation + Table of Contents
     if st.session_state.show_toc and col1:
         with col1:
-            display_db_toc(st.session_state.selected_document_id)
-            
-            # Page navigation
-            st.markdown("---")
+            # Page navigation at the top
             st.markdown("### 📄 Page Navigation")
             total_pages = len(st.session_state.pdf_doc)
-            
+
             # Use on_change to avoid conflicts with button navigation
             def update_page():
                 new_page = st.session_state.page_input_widget - 1
                 if new_page != st.session_state.current_page:
                     st.session_state.current_page = new_page
-            
+
             st.number_input(
-                "Go to page:", 
-                min_value=1, 
+                "Go to page:",
+                min_value=1,
                 max_value=total_pages,
                 value=st.session_state.current_page + 1,
                 key="page_input_widget",
                 on_change=update_page
             )
-            
+
             st.text(f"Page {st.session_state.current_page + 1} of {total_pages}")
+
+            st.markdown("---")
+            display_db_toc(st.session_state.selected_document_id)
     
     # Column 2: PDF Viewer
     with col2:
-        st.markdown("### 📖 Document Viewer")
         img = render_pdf_page(st.session_state.pdf_doc, st.session_state.current_page)
         if img:
             st.image(img, use_container_width=True)

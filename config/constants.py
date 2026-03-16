@@ -22,6 +22,8 @@ if not SUPABASE_SERVICE_ROLE_KEY:
     raise ValueError("SUPABASE_SERVICE_ROLE_KEY not found in environment")
 if not SUPABASE_URL:
     raise ValueError("SUPABASE_URL not found in environment")
+if not SUPABASE_ANON_KEY:
+    raise ValueError("SUPABASE_ANON_KEY not found in environment")
 
 def get_supabase():
     """Return a fresh Supabase client with service role key (bypasses RLS). Use for admin/CLI ops."""

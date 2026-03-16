@@ -169,19 +169,31 @@ SYSTEM_PROMPT = (
 )
 
 
-def build_user_prompt(question: str, student_answer: str, context: str) -> str:
+def build_user_prompt(
+    question: str,
+    student_answer: str,
+    context: str,
+    key_concepts: Optional[str] = None,
+) -> str:
+    key_concepts_block = ""
+    if key_concepts:
+        key_concepts_block = f"""
+KEY CONCEPTS TO CHECK (extracted from section):
+{key_concepts}
+Score C1 and C2 based on whether these specific concepts appear in the student answer.
+"""
     return f"""TASK:
 Evaluate the student's answer using ONLY the CONTEXT and the rubric below.
 
 QUESTION:
 {question.strip()}
 
-STUDENT ANSWER:
+STUDENT ANSWER (may be in a different language than the context — evaluate concepts, not language):
 {student_answer.strip()}
 
 CONTEXT (authoritative source — do not use outside knowledge):
 {context.strip()}
-
+{key_concepts_block}
 {RUBRIC_BLOCK}
 
 JSON SCHEMA (enforce strictly):
@@ -238,6 +250,7 @@ def grade_with_guardrails(
     max_retries: int = 1,
     allow_repair: bool = True,
     repair_llm: Optional[LLMFn] = None,
+    key_concepts: Optional[str] = None,
 ) -> Grade:
     """
     1. Call LLM with structured rubric prompt.
@@ -252,7 +265,7 @@ def grade_with_guardrails(
     candidate = ""
 
     while attempt <= max_retries:
-        user_prompt = build_user_prompt(question, student_answer, context)
+        user_prompt = build_user_prompt(question, student_answer, context, key_concepts)
         raw = call_llm(sys_prompt, user_prompt)
         candidate = _extract_json(raw)
         try:

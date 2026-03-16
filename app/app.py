@@ -16,7 +16,7 @@ from typing import List
 from components import render_pdf_page
 from src.retrieval import get_document_list, get_document_toc as get_db_toc, get_section_content
 from src.pipeline import run_section_recall
-from config.constants import supabase, STORAGE_BUCKET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+from config.constants import get_supabase, STORAGE_BUCKET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 from ingest.toc_chunk import fetch_pdf_from_storage
 
 # Page configuration
@@ -29,41 +29,6 @@ st.set_page_config(
 # Custom CSS
 st.markdown("""
     <style>
-    .toc-container {
-        height: 70vh;
-        overflow-y: auto;
-        padding: 10px;
-        border-radius: 8px;
-        background-color: #f8f9fa;
-    }
-    .toc-item {
-        padding: 8px;
-        margin: 4px 0;
-        border-radius: 4px;
-        cursor: pointer;
-        transition: background-color 0.2s;
-    }
-    .toc-item:hover {
-        background-color: #e9ecef;
-    }
-    .stButton>button {
-        width: 100%;
-        text-align: left;
-        border: none;
-        background-color: transparent;
-        padding: 8px 12px;
-    }
-    .stButton>button:hover {
-        background-color: #e9ecef;
-    }
-    .chat-container {
-        height: 70vh;
-        overflow-y: auto;
-        padding: 10px;
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
-        background-color: #ffffff;
-    }
     .block-container {
         padding-top: 2rem;
     }
@@ -93,7 +58,7 @@ def get_pdf_from_storage(document_id: str) -> tuple:
     """
     try:
         # Get document metadata from database
-        doc_result = supabase.table("documents").select("*").eq("id", document_id).single().execute()
+        doc_result = get_supabase().table("documents").select("*").eq("id", document_id).single().execute()
         doc_data = doc_result.data
         
         # Get the filename - prefer original_filename (just filename) over storage_path (bucket/filename)
@@ -136,7 +101,7 @@ def get_pdf_from_storage(document_id: str) -> tuple:
         
         # Try to list available files
         try:
-            files = supabase.storage.from_(STORAGE_BUCKET).list()
+            files = get_supabase().storage.from_(STORAGE_BUCKET).list()
             if files:
                 file_names = [f.get('name') for f in files]
                 st.info(f"Available files in bucket: {', '.join(file_names)}")
@@ -145,34 +110,49 @@ def get_pdf_from_storage(document_id: str) -> tuple:
         
         return None, None
 
-def display_db_toc(document_id: str, pdf_doc):
-    """Display ToC from database as clickable tree"""
-    st.markdown("### 📚 Table of Contents")
-    
+@st.fragment
+def display_db_toc(document_id: str):
+    """Collapsible ToC — expand/collapse reruns only this fragment;
+    navigation triggers a full rerun to update the PDF viewer."""
+    st.markdown("### 📚 Contents")
+
     toc = get_db_toc(document_id)
-    
+
     if not toc:
         st.info("No table of contents found")
         return
-    
-    def render_toc_node(nodes, level=0):
-        for node in nodes:
-            indent = "　" * level  # Use full-width space for visual indent
-            button_label = f"{indent}{node['title']}"
 
-            if st.button(button_label, key=f"toc_{node['node_id']}", use_container_width=True):
-                target_page = node['page_start'] - 1
-                st.session_state.current_page = target_page
-                st.session_state.page_input_widget = target_page + 1
-                st.session_state.selected_section = node
-                st.session_state.evaluation_result = None
+    selected_node_id = (
+        st.session_state.selected_section.get("node_id")
+        if st.session_state.get("selected_section")
+        else None
+    )
+
+    def render_node(nodes, level=0):
+        for node in nodes:
+            node_id   = node["node_id"]
+            has_kids  = bool(node.get("children"))
+            exp_key   = f"toc_expanded_{node_id}"
+            expanded  = st.session_state.get(exp_key, False)
+
+            pad   = "　" * level
+            arrow = ("▼ " if expanded else "▶ ") if has_kids else "    "
+            label = f"{pad}{arrow}{node['title']}"
+
+            if st.button(label, key=f"toc_{node_id}", use_container_width=True):
+                if has_kids:
+                    st.session_state[exp_key] = not expanded
+                # always navigate to the node's page
+                st.session_state.current_page       = node["page_start"] - 1
+                st.session_state.page_input_widget  = node["page_start"]
+                st.session_state.selected_section   = node
+                st.session_state.evaluation_result  = None
                 st.rerun()
 
-            # Render children recursively
-            if node.get('children'):
-                render_toc_node(node['children'], level + 1)
-    
-    render_toc_node(toc)
+            if has_kids and expanded:
+                render_node(node["children"], level + 1)
+
+    render_node(toc)
 
 # Main app header
 col_title, col_toggle = st.columns([4, 1])
@@ -186,7 +166,13 @@ with col_toggle:
 
 # Document selector
 st.markdown("---")
-docs = get_document_list()
+try:
+    docs = get_document_list()
+except Exception as e:
+    st.error(f"Could not reach the database: {e}")
+    if st.button("Retry"):
+        st.rerun()
+    st.stop()
 
 if not docs:
     st.warning("⚠️ No documents found in database. Please ingest a document first.")
@@ -224,36 +210,35 @@ if st.session_state.pdf_doc is not None:
         col1 = None
         col2, col3 = st.columns([2, 1.5])
     
-    # Column 1: Table of Contents
+    # Column 1: Page Navigation + Table of Contents
     if st.session_state.show_toc and col1:
         with col1:
-            display_db_toc(st.session_state.selected_document_id, st.session_state.pdf_doc)
-            
-            # Page navigation
-            st.markdown("---")
+            # Page navigation at the top
             st.markdown("### 📄 Page Navigation")
             total_pages = len(st.session_state.pdf_doc)
-            
+
             # Use on_change to avoid conflicts with button navigation
             def update_page():
                 new_page = st.session_state.page_input_widget - 1
                 if new_page != st.session_state.current_page:
                     st.session_state.current_page = new_page
-            
+
             st.number_input(
-                "Go to page:", 
-                min_value=1, 
+                "Go to page:",
+                min_value=1,
                 max_value=total_pages,
                 value=st.session_state.current_page + 1,
                 key="page_input_widget",
                 on_change=update_page
             )
-            
+
             st.text(f"Page {st.session_state.current_page + 1} of {total_pages}")
+
+            st.markdown("---")
+            display_db_toc(st.session_state.selected_document_id)
     
     # Column 2: PDF Viewer
     with col2:
-        st.markdown("### 📖 Document Viewer")
         img = render_pdf_page(st.session_state.pdf_doc, st.session_state.current_page)
         if img:
             st.image(img, use_container_width=True)

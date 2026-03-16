@@ -2,7 +2,7 @@
 from typing import List, Dict, Optional
 import json
 import numpy as np
-from config.constants import supabase, MODEL_NAME
+from config.constants import get_supabase, MODEL_NAME
 
 # ============================================================================
 # CORE FUNCTIONS FOR ASSESSMENT APP
@@ -16,7 +16,7 @@ def get_document_list() -> List[Dict]:
     Returns:
         List of documents with metadata
     """
-    response = supabase.table("documents") \
+    response = get_supabase().table("documents") \
         .select("id, title, total_pages, total_sections, total_chunks, created_at") \
         .order("created_at", desc=True) \
         .execute()
@@ -72,7 +72,7 @@ def get_document_toc(document_id: str) -> List[dict]:
         3. UI shows tree → user expands chapters
         4. User selects "Chapter 3" → calls get_section_content()
     """
-    result = supabase.table("toc_nodes") \
+    result = get_supabase().table("toc_nodes") \
         .select("id, node_id, title, level, page_start, page_end") \
         .eq("document_id", document_id) \
         .order("page_start") \
@@ -113,7 +113,7 @@ def get_section_content(
     """
     # 1. Get the ToC node
     try:
-        node_result = supabase.table("toc_nodes") \
+        node_result = get_supabase().table("toc_nodes") \
             .select("*") \
             .eq("document_id", document_id) \
             .eq("node_id", node_id) \
@@ -130,7 +130,7 @@ def get_section_content(
     if include_children:
         # Fetch descendants: strictly higher level within the section's page range.
         # Using gt("level") excludes same-level siblings that happen to share the page range.
-        descendants = supabase.table("toc_nodes") \
+        descendants = get_supabase().table("toc_nodes") \
             .select("id") \
             .eq("document_id", document_id) \
             .gte("page_start", node["page_start"]) \
@@ -144,7 +144,7 @@ def get_section_content(
         toc_node_ids = [node["id"]]
     
     # 3. Get chunks
-    chunks = supabase.table("chunks") \
+    chunks = get_supabase().table("chunks") \
         .select("id, chunk_seq, section_title, text, page_start, page_end") \
         .eq("document_id", document_id) \
         .in_("toc_node_id", toc_node_ids) \
@@ -177,7 +177,7 @@ def get_ancestor_path(document_id: str, node_id: str) -> List[str]:
         Home > My Textbook > Part 1 > Chapter 3 > Section 3.2
     """
     # Get all nodes
-    all_nodes = supabase.table("toc_nodes") \
+    all_nodes = get_supabase().table("toc_nodes") \
         .select("*") \
         .eq("document_id", document_id) \
         .order("page_start") \
@@ -229,7 +229,7 @@ def search_within_section(
     from ingest.embedding_import import generate_embeddings
     
     # Get the section's ToC node
-    node_result = supabase.table("toc_nodes") \
+    node_result = get_supabase().table("toc_nodes") \
         .select("id") \
         .eq("document_id", document_id) \
         .eq("node_id", node_id) \
@@ -245,7 +245,7 @@ def search_within_section(
     )[0]
     
     # Get all chunks from this section
-    chunks = supabase.table("chunks") \
+    chunks = get_supabase().table("chunks") \
         .select("id, chunk_id, text, section_title, page_start, page_end, embedding") \
         .eq("document_id", document_id) \
         .eq("toc_node_id", toc_node_db_id) \

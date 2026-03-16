@@ -29,19 +29,33 @@ from config.constants import (
     EMBEDDING_MODEL,
     TARGET_CHARS,
     OVERLAP_CHARS,
-    supabase
+    supabase,
+    get_supabase_for_user,
 )
 
-def ingest_document(user_id: Optional[str] = None) -> str:
+def ingest_document(
+    user_id: Optional[str] = None,
+    user_jwt: Optional[str] = None,
+    supabase_client=None,
+) -> str:
     """
     Complete end-to-end ingestion with document tracking.
 
     Args:
-        user_id: UUID of user (None for MVP)
+        user_id: UUID of authenticated user
+        user_jwt: JWT of authenticated user (used for storage fetch and RLS-scoped DB writes)
+        supabase_client: pre-built user-scoped Supabase client; if None, falls back to
+                         user_jwt (builds one) or service role key (CLI/admin mode)
 
     Returns:
         document_id: UUID of created document record
     """
+    if supabase_client is None:
+        supabase_client = get_supabase_for_user(user_jwt) if user_jwt else supabase
+
+    # auth_token for storage: prefer user JWT, fall back to service role key
+    storage_token = user_jwt or SUPABASE_SERVICE_ROLE_KEY
+
     if not PDF_FILENAME:
         raise ValueError("PDF_FILENAME must be set in .env file")
 
@@ -62,10 +76,10 @@ def ingest_document(user_id: Optional[str] = None) -> str:
     print("STEP 1/6: FETCHING PDF FROM SUPABASE STORAGE")
     print("=" * 80)
     pdf_bytes = fetch_pdf_from_storage(
-        SUPABASE_URL,
-        SUPABASE_SERVICE_ROLE_KEY,
-        STORAGE_BUCKET,
-        PDF_FILENAME
+        supabase_url=SUPABASE_URL,
+        auth_token=storage_token,
+        bucket=STORAGE_BUCKET,
+        filename=PDF_FILENAME,
     )
 
     # Step 2: Build ToC
@@ -85,7 +99,7 @@ def ingest_document(user_id: Optional[str] = None) -> str:
     print("STEP 3/6: CHECKING FOR EXISTING DOCUMENT")
     print("=" * 80)
 
-    existing_doc = supabase.from_('documents') \
+    existing_doc = supabase_client.from_('documents') \
         .select('id, title, total_chunks') \
         .eq('doc_hash', doc_hash) \
         .execute()
@@ -104,7 +118,7 @@ def ingest_document(user_id: Optional[str] = None) -> str:
         # Delete existing document (cascades to toc_nodes and chunks)
         document_id = existing_doc.data[0]['id']
         print(f"\n🗑️  Deleting existing document...")
-        supabase.from_('documents').delete().eq('id', document_id).execute()
+        supabase_client.from_('documents').delete().eq('id', document_id).execute()
 
     # Step 4: Create document record
     print("\n" + "=" * 80)
@@ -125,7 +139,7 @@ def ingest_document(user_id: Optional[str] = None) -> str:
         "chunk_overlap": OVERLAP_CHARS,
     }
 
-    doc_response = supabase.table("documents").insert(document_record).execute()
+    doc_response = supabase_client.table("documents").insert(document_record).execute()
     document_id = doc_response.data[0]['id']
 
     print(f"✅ Created document record")
@@ -176,11 +190,11 @@ def ingest_document(user_id: Optional[str] = None) -> str:
             "page_end": n["page_end"]
         } for n in toc_flat]
 
-        supabase.table("toc_nodes").insert(toc_records).execute()
+        supabase_client.table("toc_nodes").insert(toc_records).execute()
         print(f"✅ Inserted {len(toc_records)} ToC nodes")
 
         # Get node_id -> db_id mapping
-        result = supabase.table("toc_nodes") \
+        result = supabase_client.table("toc_nodes") \
             .select("id, node_id") \
             .eq("document_id", document_id) \
             .execute()
@@ -208,19 +222,19 @@ def ingest_document(user_id: Optional[str] = None) -> str:
 
         for i in range(0, len(chunk_records), BATCH_SIZE):
             batch = chunk_records[i:i+BATCH_SIZE]
-            supabase.table("chunks").insert(batch).execute()
+            supabase_client.table("chunks").insert(batch).execute()
             batch_num = i // BATCH_SIZE + 1
             print(f"   ✓ Batch {batch_num}/{total_batches} ({len(batch)} chunks)")
 
         # Update document stats
-        supabase.table("documents").update({
+        supabase_client.table("documents").update({
             "total_chunks": len(chunks),
             "ingested_at": datetime.now(timezone.utc).isoformat()
         }).eq("id", document_id).execute()
 
     except Exception:
         print(f"\n❌ Ingestion failed — cleaning up partial document record...")
-        supabase.from_('documents').delete().eq('id', document_id).execute()
+        supabase_client.from_('documents').delete().eq('id', document_id).execute()
         raise
 
     print("\n" + "=" * 80)

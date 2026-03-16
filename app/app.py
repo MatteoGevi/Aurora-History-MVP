@@ -16,7 +16,7 @@ from typing import List
 from components import render_pdf_page
 from src.retrieval import get_document_list, get_document_toc as get_db_toc, get_section_content
 from src.pipeline import run_section_recall
-from config.constants import get_supabase, STORAGE_BUCKET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+from config.constants import get_supabase, get_supabase_for_user, STORAGE_BUCKET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY
 from ingest.toc_chunk import fetch_pdf_from_storage
 
 # Page configuration
@@ -49,16 +49,70 @@ if 'selected_section' not in st.session_state:
 if 'evaluation_result' not in st.session_state:
     st.session_state.evaluation_result = None
 
-def get_pdf_from_storage(document_id: str) -> tuple:
+# Auth session state
+if 'authenticated' not in st.session_state:
+    st.session_state.authenticated = False
+if 'supabase_client' not in st.session_state:
+    st.session_state.supabase_client = None
+if 'user' not in st.session_state:
+    st.session_state.user = None
+
+# ── Login gate ────────────────────────────────────────────────────────────────
+if not st.session_state.authenticated:
+    st.title("🦉 Aurora Learning Platform")
+    st.markdown("Sign in to continue")
+    tab_login, tab_signup = st.tabs(["Login", "Sign Up"])
+
+    with tab_login:
+        login_email = st.text_input("Email", key="login_email")
+        login_password = st.text_input("Password", type="password", key="login_password")
+        if st.button("Login", type="primary", key="login_btn"):
+            if login_email and login_password:
+                try:
+                    from supabase import create_client
+                    auth_client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+                    response = auth_client.auth.sign_in_with_password(
+                        {"email": login_email, "password": login_password}
+                    )
+                    st.session_state.authenticated = True
+                    st.session_state.supabase_client = get_supabase_for_user(
+                        response.session.access_token
+                    )
+                    st.session_state.user = response.user
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Login failed: {e}")
+            else:
+                st.warning("Please enter your email and password")
+
+    with tab_signup:
+        signup_email = st.text_input("Email", key="signup_email")
+        signup_password = st.text_input("Password", type="password", key="signup_password")
+        if st.button("Sign Up", type="primary", key="signup_btn"):
+            if signup_email and signup_password:
+                try:
+                    from supabase import create_client
+                    auth_client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+                    auth_client.auth.sign_up({"email": signup_email, "password": signup_password})
+                    st.success("Account created! Check your email to confirm your registration, then log in.")
+                except Exception as e:
+                    st.error(f"Sign up failed: {e}")
+            else:
+                st.warning("Please enter email and password")
+
+    st.stop()
+
+def get_pdf_from_storage(document_id: str, sb=None) -> tuple:
     """
     Download PDF from Supabase Storage using the existing fetch function
-    
+
     Returns:
         (pdf_doc, filename) or (None, None) if error
     """
     try:
         # Get document metadata from database
-        doc_result = get_supabase().table("documents").select("*").eq("id", document_id).single().execute()
+        sb = sb or get_supabase()
+        doc_result = sb.table("documents").select("*").eq("id", document_id).single().execute()
         doc_data = doc_result.data
         
         # Get the filename - prefer original_filename (just filename) over storage_path (bucket/filename)
@@ -84,9 +138,9 @@ def get_pdf_from_storage(document_id: str) -> tuple:
         # Use the existing fetch function from toc_chunk.py
         pdf_bytes = fetch_pdf_from_storage(
             supabase_url=SUPABASE_URL,
-            service_role_key=SUPABASE_SERVICE_ROLE_KEY,
+            auth_token=SUPABASE_SERVICE_ROLE_KEY,
             bucket=STORAGE_BUCKET,
-            filename=filename
+            filename=filename,
         )
         
         # Open with PyMuPDF
@@ -101,7 +155,7 @@ def get_pdf_from_storage(document_id: str) -> tuple:
         
         # Try to list available files
         try:
-            files = get_supabase().storage.from_(STORAGE_BUCKET).list()
+            files = sb.storage.from_(STORAGE_BUCKET).list()
             if files:
                 file_names = [f.get('name') for f in files]
                 st.info(f"Available files in bucket: {', '.join(file_names)}")
@@ -116,7 +170,7 @@ def display_db_toc(document_id: str):
     navigation triggers a full rerun to update the PDF viewer."""
     st.markdown("### 📚 Contents")
 
-    toc = get_db_toc(document_id)
+    toc = get_db_toc(document_id, sb=st.session_state.supabase_client)
 
     if not toc:
         st.info("No table of contents found")
@@ -155,7 +209,7 @@ def display_db_toc(document_id: str):
     render_node(toc)
 
 # Main app header
-col_title, col_toggle = st.columns([4, 1])
+col_title, col_toggle, col_logout = st.columns([4, 1, 1])
 with col_title:
     st.title("🦉 AI Engineering Learning Platform")
     st.markdown("*MVP - Building Applications with Foundation Models*")
@@ -163,11 +217,18 @@ with col_toggle:
     if st.button("📚 Toggle ToC" if not st.session_state.show_toc else "✖️ Close ToC"):
         st.session_state.show_toc = not st.session_state.show_toc
         st.rerun()
+with col_logout:
+    user_email = getattr(st.session_state.user, 'email', '') if st.session_state.user else ''
+    if st.button(f"Logout", help=user_email):
+        st.session_state.authenticated = False
+        st.session_state.supabase_client = None
+        st.session_state.user = None
+        st.rerun()
 
 # Document selector
 st.markdown("---")
 try:
-    docs = get_document_list()
+    docs = get_document_list(sb=st.session_state.supabase_client)
 except Exception as e:
     st.error(f"Could not reach the database: {e}")
     if st.button("Retry"):
@@ -192,7 +253,7 @@ selected_doc_id = doc_options[selected_title]
 # Load PDF if selection changed
 if selected_doc_id != st.session_state.selected_document_id:
     with st.spinner(f"Loading {selected_title}..."):
-        doc, title = get_pdf_from_storage(selected_doc_id)
+        doc, title = get_pdf_from_storage(selected_doc_id, sb=st.session_state.supabase_client)
         if doc:
             st.session_state.pdf_doc = doc
             st.session_state.selected_document_id = selected_doc_id
@@ -280,7 +341,8 @@ if st.session_state.pdf_doc is not None:
                                 result = run_section_recall(
                                     document_id=st.session_state.selected_document_id,
                                     node_id=section['node_id'],
-                                    student_recall=recall
+                                    student_recall=recall,
+                                    sb=st.session_state.supabase_client,
                                 )
                                 st.session_state.evaluation_result = result
                                 st.rerun()

@@ -8,15 +8,16 @@ from config.constants import get_supabase, MODEL_NAME
 # CORE FUNCTIONS FOR ASSESSMENT APP
 # ============================================================================
 
-def get_document_list() -> List[Dict]:
+def get_document_list(sb=None) -> List[Dict]:
     """
     Get all documents uploaded by user.
     Called when: User first opens the app
-    
+
     Returns:
         List of documents with metadata
     """
-    response = get_supabase().table("documents") \
+    sb = sb or get_supabase()
+    response = sb.table("documents") \
         .select("id, title, total_pages, total_sections, total_chunks, created_at") \
         .order("created_at", desc=True) \
         .execute()
@@ -58,7 +59,7 @@ def build_tree(flat_nodes: List[dict]) -> List[dict]:
     return root_nodes
 
 
-def get_document_toc(document_id: str) -> List[dict]:
+def get_document_toc(document_id: str, sb=None) -> List[dict]:
     """
     Get hierarchical table of contents for a document.
     Called when: User selects a document and wants to choose sections to study
@@ -72,19 +73,21 @@ def get_document_toc(document_id: str) -> List[dict]:
         3. UI shows tree → user expands chapters
         4. User selects "Chapter 3" → calls get_section_content()
     """
-    result = get_supabase().table("toc_nodes") \
+    sb = sb or get_supabase()
+    result = sb.table("toc_nodes") \
         .select("id, node_id, title, level, page_start, page_end") \
         .eq("document_id", document_id) \
         .order("page_start") \
         .execute()
-    
+
     return build_tree(result.data)
 
 
 def get_section_content(
     document_id: str,
     node_id: str,
-    include_children: bool = True
+    include_children: bool = True,
+    sb=None,
 ) -> Dict:
     """
     Get all content for a selected section.
@@ -111,9 +114,10 @@ def get_section_content(
         >>> content = get_section_content(doc_id, "h1-3__newtons-laws")
         >>> # Now generate questions from content['text']
     """
+    sb = sb or get_supabase()
     # 1. Get the ToC node
     try:
-        node_result = get_supabase().table("toc_nodes") \
+        node_result = sb.table("toc_nodes") \
             .select("*") \
             .eq("document_id", document_id) \
             .eq("node_id", node_id) \
@@ -130,7 +134,7 @@ def get_section_content(
     if include_children:
         # Fetch descendants: strictly higher level within the section's page range.
         # Using gt("level") excludes same-level siblings that happen to share the page range.
-        descendants = get_supabase().table("toc_nodes") \
+        descendants = sb.table("toc_nodes") \
             .select("id") \
             .eq("document_id", document_id) \
             .gte("page_start", node["page_start"]) \
@@ -144,7 +148,7 @@ def get_section_content(
         toc_node_ids = [node["id"]]
     
     # 3. Get chunks
-    chunks = get_supabase().table("chunks") \
+    chunks = sb.table("chunks") \
         .select("id, chunk_seq, section_title, text, page_start, page_end") \
         .eq("document_id", document_id) \
         .in_("toc_node_id", toc_node_ids) \

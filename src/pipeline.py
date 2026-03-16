@@ -89,6 +89,7 @@ def run_section_recall(
     node_id: str,
     student_recall: str,
     max_retries: int = 1,
+    sb=None,
 ) -> Dict:
     """
     Core Aurora flow: user selects a ToC section, writes a free recall of its
@@ -113,7 +114,7 @@ def run_section_recall(
             "page_range":        str,
         }
     """
-    content = get_section_content(document_id, node_id, include_children=True)
+    content = get_section_content(document_id, node_id, include_children=True, sb=sb)
     context_text = _truncate_at_boundary(content["text"], max_chars=5000)
 
     call_llm = _make_claude_adapter()

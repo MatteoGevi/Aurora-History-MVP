@@ -5,12 +5,32 @@ from typing import Dict
 from src.retrieval import get_section_content
 from src.guardrailed_grader import grade_with_guardrails, Grade, MAX_SCORE
 
-# The fixed recall prompt shown to the grader as the "question".
-# The user never sees this — it's the grader's framing for what a good answer looks like.
-_RECALL_PROMPT = (
-    "Describe the key content, main concepts, and important details of this section "
-    "as thoroughly as you can from memory."
-)
+def _build_section_recall_prompt(context: str, call_llm) -> str:
+    """Generate a specific recall question from section content."""
+    resp = call_llm(
+        "You are an academic assessor.",
+        f"""Given this section content, write ONE specific recall question
+that covers the most important concepts. Be concrete and specific to this content.
+
+Content: {context[:1500]}
+
+Return ONLY the question, no preamble.""",
+    )
+    return resp.strip()
+
+
+def _extract_key_concepts(context: str, call_llm) -> str:
+    """Extract key concepts a complete recall answer should cover."""
+    resp = call_llm(
+        "You are an academic assessor.",
+        f"""Extract the 5-8 most important concepts, terms, or facts from this section
+that a student should mention in a thorough recall answer.
+
+Content: {context[:2000]}
+
+Return as a numbered list. Be specific. No preamble.""",
+    )
+    return resp.strip()
 
 
 def _truncate_at_boundary(text: str, max_chars: int) -> str:
@@ -34,7 +54,7 @@ def _make_ollama_adapter():
     from src.models import generate_chat
 
     def call_llm(system: str, user: str) -> str:
-        return generate_chat(system, user, max_tokens=2500, temperature=0.2)
+        return generate_chat(system, user, max_tokens=2500, temperature=0.0)
 
     return call_llm
 
@@ -47,7 +67,7 @@ def _make_openai_adapter():
     from src.models import generate_chat_openai
 
     def call_llm(system: str, user: str) -> str:
-        return generate_chat_openai(system, user, max_tokens=2500, temperature=0.2)
+        return generate_chat_openai(system, user, max_tokens=2500, temperature=0.0)
 
     return call_llm
 
@@ -59,7 +79,7 @@ def _make_claude_adapter():
     from src.models import generate_chat_claude
 
     def call_llm(system: str, user: str) -> str:
-        return generate_chat_claude(system, user, max_tokens=2500)
+        return generate_chat_claude(system, user, max_tokens=2500, temperature=0.0)
 
     return call_llm
 
@@ -98,14 +118,18 @@ def run_section_recall(
 
     call_llm = _make_claude_adapter()
 
+    question = _build_section_recall_prompt(context_text, call_llm)
+    key_concepts = _extract_key_concepts(context_text, call_llm)
+
     grade: Grade = grade_with_guardrails(
-        question=_RECALL_PROMPT,
+        question=question,
         student_answer=student_recall,
         context=context_text,
         call_llm=call_llm,
         max_retries=max_retries,
         allow_repair=True,
         repair_llm=call_llm,
+        key_concepts=key_concepts,
     )
 
     return {
@@ -178,11 +202,14 @@ def run_quick_check(
     Returns a Grade object; call .to_dict() to get a flat dict for display.
     """
     call_llm = _make_claude_adapter()
+    question = _build_section_recall_prompt(context_text, call_llm)
+    key_concepts = _extract_key_concepts(context_text, call_llm)
     return grade_with_guardrails(
-        question=_RECALL_PROMPT,
+        question=question,
         student_answer=student_recall,
         context=context_text,
         call_llm=call_llm,
+        key_concepts=key_concepts,
     )
 
 

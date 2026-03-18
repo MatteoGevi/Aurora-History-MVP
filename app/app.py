@@ -49,6 +49,8 @@ if 'selected_section' not in st.session_state:
     st.session_state.selected_section = None
 if 'evaluation_result' not in st.session_state:
     st.session_state.evaluation_result = None
+if 'page_input_widget' not in st.session_state:
+    st.session_state.page_input_widget = 1
 
 # Auth session state
 if 'authenticated' not in st.session_state:
@@ -351,7 +353,6 @@ if st.session_state.pdf_doc is not None:
                 "Go to page:",
                 min_value=1,
                 max_value=total_pages,
-                value=st.session_state.current_page + 1,
                 key="page_input_widget",
                 on_change=update_page
             )

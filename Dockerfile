@@ -1,5 +1,14 @@
+# ─────────────────────────────────────────────
+# Aurora — Dockerfile for Railway deployment
+# Uses Poetry with native [tool.poetry.dependencies] format
+# ─────────────────────────────────────────────
+
 FROM python:3.12-slim
 
+# System dependencies
+# poppler-utils: PDF rendering (pymupdf/pdf2image)
+# libgomp1:      OpenMP for sentence-transformers / faiss
+# tesseract-ocr: OCR support (pytesseract)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
@@ -8,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
+# Poetry — no virtualenvs inside the image
 ENV POETRY_HOME=/opt/poetry \
     POETRY_VERSION=1.8.3 \
     POETRY_VIRTUALENVS_CREATE=false \
@@ -20,13 +30,16 @@ RUN curl -sSL https://install.python-poetry.org | python3 - \
 
 WORKDIR /app
 
+# Install ONLY production dependencies — excludes [dev] group (jupyter, ipykernel)
 COPY pyproject.toml poetry.lock* ./
 RUN poetry install --no-root --only main
 
-COPY app/        ./app/
-COPY src/        ./src/
-COPY config/     ./config/
+# Copy application source
+COPY app/    ./app/
+COPY src/    ./src/
+COPY config/ ./config/
 
+# Railway injects $PORT at runtime
 EXPOSE 8501
 
 CMD streamlit run app/app.py \

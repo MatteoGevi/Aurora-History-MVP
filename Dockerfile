@@ -34,9 +34,13 @@ WORKDIR /app
 COPY pyproject.toml poetry.lock* ./
 RUN poetry install --no-root --only main
 
+# Download SpaCy model required by the ingestion pipeline's text splitter
+RUN python -m spacy download en_core_web_sm
+
 # Copy application source
 COPY app/    ./app/
 COPY src/    ./src/
+COPY ingest/ ./ingest/
 COPY config/ ./config/
 
 # Railway injects $PORT at runtime

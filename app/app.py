@@ -18,6 +18,7 @@ from src.retrieval import get_document_list, get_document_toc as get_db_toc, get
 from src.pipeline import run_section_recall
 from config.constants import get_supabase, get_supabase_for_user, STORAGE_BUCKET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY
 from ingest.toc_chunk import fetch_pdf_from_storage
+from ingest.ingest import ingest_document, DuplicateDocumentError
 
 # Page configuration
 st.set_page_config(
@@ -56,6 +57,8 @@ if 'supabase_client' not in st.session_state:
     st.session_state.supabase_client = None
 if 'user' not in st.session_state:
     st.session_state.user = None
+if 'user_jwt' not in st.session_state:
+    st.session_state.user_jwt = None
 
 # ── Login gate ────────────────────────────────────────────────────────────────
 if not st.session_state.authenticated:
@@ -75,6 +78,7 @@ if not st.session_state.authenticated:
                         {"email": login_email, "password": login_password}
                     )
                     st.session_state.authenticated = True
+                    st.session_state.user_jwt = response.session.access_token
                     st.session_state.supabase_client = get_supabase_for_user(
                         response.session.access_token
                     )
@@ -223,7 +227,64 @@ with col_logout:
         st.session_state.authenticated = False
         st.session_state.supabase_client = None
         st.session_state.user = None
+        st.session_state.user_jwt = None
         st.rerun()
+
+def show_upload_widget():
+    """Upload a PDF to Supabase Storage and run the ingestion pipeline."""
+    uploaded_file = st.file_uploader(
+        "Choose a PDF file",
+        type="pdf",
+        key="pdf_uploader",
+        help="The PDF will be uploaded to storage and indexed for assessment.",
+    )
+
+    if uploaded_file is not None:
+        col_btn, col_force = st.columns([3, 2])
+        with col_btn:
+            ingest_clicked = st.button("Ingest Document", type="primary", key="ingest_btn")
+        with col_force:
+            force_reingest = st.checkbox("Replace if duplicate", key="force_reingest_cb")
+
+        if ingest_clicked:
+            pdf_bytes = uploaded_file.getvalue()
+            filename = uploaded_file.name
+            user_id = st.session_state.user.id if st.session_state.user else None
+
+            # Upload to Supabase Storage (service role bypasses storage RLS)
+            with st.spinner(f"Uploading {filename} to storage..."):
+                try:
+                    sb_admin = get_supabase()
+                    sb_admin.storage.from_(STORAGE_BUCKET).upload(
+                        filename,
+                        pdf_bytes,
+                        {"content-type": "application/pdf", "upsert": "true"},
+                    )
+                except Exception as e:
+                    st.error(f"Storage upload failed: {e}")
+                    return
+
+            # Run ingestion pipeline
+            with st.spinner("Indexing document — this may take a few minutes for large PDFs..."):
+                try:
+                    doc_id = ingest_document(
+                        filename=filename,
+                        pdf_bytes=pdf_bytes,
+                        user_id=user_id,
+                        user_jwt=st.session_state.user_jwt,
+                        supabase_client=st.session_state.supabase_client,
+                        force_reingest=force_reingest,
+                    )
+                    st.success(f"✅ **{filename}** ingested successfully! (ID: `{doc_id}`)")
+                    st.rerun()
+                except DuplicateDocumentError as e:
+                    st.warning(
+                        f"⚠️ **{e.title}** is already in the database.\n\n"
+                        "Check **Replace if duplicate** and click Ingest again to re-index it."
+                    )
+                except Exception as e:
+                    st.error(f"Ingestion failed: {e}")
+
 
 # Document selector
 st.markdown("---")
@@ -235,9 +296,11 @@ except Exception as e:
         st.rerun()
     st.stop()
 
+with st.expander("📤 Upload New Document", expanded=not docs):
+    show_upload_widget()
+
 if not docs:
-    st.warning("⚠️ No documents found in database. Please ingest a document first.")
-    st.info("Run your ingestion script to add documents to the database.")
+    st.info("No documents yet — upload a PDF above to get started.")
     st.stop()
 
 # Create document selector

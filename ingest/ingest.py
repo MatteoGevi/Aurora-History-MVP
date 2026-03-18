@@ -33,19 +33,35 @@ from config.constants import (
     get_supabase_for_user,
 )
 
+
+class DuplicateDocumentError(Exception):
+    """Raised when a document with the same hash already exists in the database."""
+    def __init__(self, document_id: str, title: str):
+        self.document_id = document_id
+        self.title = title
+        super().__init__(f"Document already exists: '{title}' (id={document_id})")
+
+
 def ingest_document(
+    filename: Optional[str] = None,
+    pdf_bytes: Optional[bytes] = None,
     user_id: Optional[str] = None,
     user_jwt: Optional[str] = None,
     supabase_client=None,
+    force_reingest: bool = False,
 ) -> str:
     """
     Complete end-to-end ingestion with document tracking.
 
     Args:
+        filename: Name of the PDF file in Supabase Storage. Falls back to PDF_FILENAME env var.
+        pdf_bytes: Raw PDF bytes. If provided, skips the storage fetch step (Step 1).
         user_id: UUID of authenticated user
         user_jwt: JWT of authenticated user (used for storage fetch and RLS-scoped DB writes)
         supabase_client: pre-built user-scoped Supabase client; if None, falls back to
                          user_jwt (builds one) or service role key (CLI/admin mode)
+        force_reingest: If True, deletes and re-ingests an existing duplicate document.
+                        If False (default), raises DuplicateDocumentError on duplicates.
 
     Returns:
         document_id: UUID of created document record
@@ -56,14 +72,13 @@ def ingest_document(
     # auth_token for storage: prefer user JWT, fall back to service role key
     storage_token = user_jwt or SUPABASE_SERVICE_ROLE_KEY
 
-    if not PDF_FILENAME:
-        raise ValueError("PDF_FILENAME must be set in .env file")
+    effective_filename = filename or PDF_FILENAME
 
     print("=" * 80)
     print("DOCUMENT INGESTION PIPELINE")
     print("=" * 80)
     print(f"\nConfiguration:")
-    print(f"  PDF: {PDF_FILENAME}")
+    print(f"  PDF: {effective_filename}")
     print(f"  Bucket: {STORAGE_BUCKET}")
     print(f"  User ID: {user_id or 'None (MVP mode)'}")
     print(f"  Chunk size: {TARGET_CHARS}")
@@ -71,16 +86,21 @@ def ingest_document(
     print(f"  Embedding model: {EMBEDDING_MODEL}")
     print()
 
-    # Step 1: Fetch PDF
+    # Step 1: Fetch PDF (skipped if bytes are passed in directly)
     print("=" * 80)
     print("STEP 1/6: FETCHING PDF FROM SUPABASE STORAGE")
     print("=" * 80)
-    pdf_bytes = fetch_pdf_from_storage(
-        supabase_url=SUPABASE_URL,
-        auth_token=storage_token,
-        bucket=STORAGE_BUCKET,
-        filename=PDF_FILENAME,
-    )
+    if pdf_bytes is not None:
+        print(f"✅ Using {len(pdf_bytes):,} bytes provided directly ({effective_filename or 'unnamed'})")
+    else:
+        if not effective_filename:
+            raise ValueError("Provide pdf_bytes or set filename / PDF_FILENAME env var")
+        pdf_bytes = fetch_pdf_from_storage(
+            supabase_url=SUPABASE_URL,
+            auth_token=storage_token,
+            bucket=STORAGE_BUCKET,
+            filename=effective_filename,
+        )
 
     # Step 2: Build ToC
     print("\n" + "=" * 80)
@@ -91,8 +111,11 @@ def ingest_document(
     print(f"✅ Document hash: {doc_hash}")
     print(f"✅ Found {len(toc_flat)} sections across {page_count} pages")
 
-    # Extract title from first H1 or use filename
-    doc_title = toc[0]['title'] if toc and toc[0].get('level') == 1 else PDF_FILENAME
+    # Derive title from filename (stem) — more reliable than ToC first entry,
+    # which is often "Cover", "Title Page", etc.
+    doc_title = Path(effective_filename).stem if effective_filename else (
+        toc[0]['title'] if toc else "Untitled"
+    )
 
     # Step 3: Check if document already exists
     print("\n" + "=" * 80)
@@ -110,10 +133,11 @@ def ingest_document(
         print(f"   ID: {existing_doc.data[0]['id']}")
         print(f"   Chunks: {existing_doc.data[0]['total_chunks']}")
 
-        response = input("\nRe-ingest? (y/n): ")
-        if response.lower() != 'y':
-            print("Ingestion cancelled.")
-            return existing_doc.data[0]['id']
+        if not force_reingest:
+            raise DuplicateDocumentError(
+                document_id=existing_doc.data[0]['id'],
+                title=existing_doc.data[0]['title'],
+            )
 
         # Delete existing document (cascades to toc_nodes and chunks)
         document_id = existing_doc.data[0]['id']
@@ -127,9 +151,9 @@ def ingest_document(
 
     document_record = {
         "user_id": user_id,
-        "storage_path": PDF_FILENAME,
+        "storage_path": effective_filename,
         "storage_bucket": STORAGE_BUCKET,
-        "original_filename": PDF_FILENAME,
+        "original_filename": effective_filename,
         "title": doc_title,
         "doc_hash": doc_hash,
         "total_pages": page_count,
@@ -249,15 +273,21 @@ def ingest_document(
 
 
 if __name__ == "__main__":
-    # For MVP: no user_id
-    user_id = None
+    import argparse
 
-    # For production: get from auth
-    # user_id = get_authenticated_user_id()
+    parser = argparse.ArgumentParser(description="Ingest a PDF into Aurora's vector DB")
+    parser.add_argument("filename", nargs="?", default=None,
+                        help="PDF filename in Supabase Storage (overrides PDF_FILENAME env var)")
+    parser.add_argument("--force", action="store_true",
+                        help="Re-ingest even if a duplicate already exists")
+    args = parser.parse_args()
 
     try:
-        doc_id = ingest_document(user_id=user_id)
+        doc_id = ingest_document(filename=args.filename, force_reingest=args.force)
         print(f"\n✅ Success! Document ID: {doc_id}")
+    except DuplicateDocumentError as e:
+        print(f"\n⚠️  {e}")
+        print("Run with --force to replace the existing document.")
     except Exception as e:
         print(f"\n❌ Error: {e}")
         raise

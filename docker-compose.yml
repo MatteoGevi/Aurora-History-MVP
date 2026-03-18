@@ -1,27 +1,52 @@
-# docker-compose.yml (Future)
+# ─────────────────────────────────────────────────────────────
+# Aurora — docker-compose.yml for LOCAL DEVELOPMENT only
+#
+# Usage:
+#   docker compose up
+#
+# Secrets:
+#   Copy .env.example → .env and fill in your values.
+#   The .env file is in .gitignore and NEVER committed to git.
+# ─────────────────────────────────────────────────────────────
+
 version: '3.8'
 
 services:
-  # Frontend
-  web:
-    build: ./app
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "8501:8501"
+    env_file:
+      - .env                      # reads all vars from your local .env
     environment:
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_KEY=${SUPABASE_KEY}
-  
-  # Background worker for PDF ingestion
-  worker:
-    build: ./ingest
-    environment:
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - PORT=8501
     volumes:
-      - ./data:/data
-  
-  # API (optional)
-  api:
-    build: ./api
-    ports:
-      - "8000:8000"
+      # Hot reload in development: mount source dirs as volumes
+      - ./app:/app/app
+      - ./src:/app/src
+      - ./config:/app/config
+    restart: unless-stopped
+
+  # ── Future services (uncomment when ready) ──────────────────
+
+  # worker:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.worker   # separate Dockerfile for ingestion
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     - SUPABASE_KEY=${SUPABASE_SERVICE_KEY}   # worker uses service key
+  #   volumes:
+  #     - ./data:/app/data
+
+  # api:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.api
+  #   ports:
+  #     - "8000:8000"
+  #   env_file:
+  #     - .env

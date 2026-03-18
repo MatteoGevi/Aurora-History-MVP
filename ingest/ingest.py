@@ -111,8 +111,11 @@ def ingest_document(
     print(f"✅ Document hash: {doc_hash}")
     print(f"✅ Found {len(toc_flat)} sections across {page_count} pages")
 
-    # Extract title from first H1 or use filename
-    doc_title = toc[0]['title'] if toc and toc[0].get('level') == 1 else effective_filename
+    # Derive title from filename (stem) — more reliable than ToC first entry,
+    # which is often "Cover", "Title Page", etc.
+    doc_title = Path(effective_filename).stem if effective_filename else (
+        toc[0]['title'] if toc else "Untitled"
+    )
 
     # Step 3: Check if document already exists
     print("\n" + "=" * 80)

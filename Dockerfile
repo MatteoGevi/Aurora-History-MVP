@@ -32,7 +32,7 @@ WORKDIR /app
 
 # Install ONLY production dependencies — excludes [dev] group (jupyter, ipykernel)
 COPY pyproject.toml poetry.lock* ./
-RUN poetry install --no-root --only main
+RUN poetry lock && poetry install --no-root --only main
 
 # Download SpaCy model required by the ingestion pipeline's text splitter
 RUN python -m spacy download en_core_web_sm

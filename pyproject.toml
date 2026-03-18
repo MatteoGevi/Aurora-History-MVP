@@ -9,55 +9,33 @@ package-mode = false
 [tool.poetry.dependencies]
 python = ">=3.12,<3.14"
 
+# ── UI ────────────────────────────────────────────────────
+streamlit                = ">=1.50.0,<2.0.0"
+pillow                   = ">=11.3.0,<12.0.0"
+
 # ── PDF processing ────────────────────────────────────────
-docling              = ">=2.49.0,<3.0.0"
-docling-parse        = ">=4.2.3,<5.0.0"
-pymupdf              = ">=1.26.3,<1.27"
-pymupdf4llm          = ">=0.0.27,<0.0.28"
-pdfminer-six         = ">=20250506,<20250507"
-pdf2image            = ">=1.17.0,<2.0.0"
-pytesseract          = ">=0.3.13,<0.4.0"
-pi-heif              = ">=1.1.0,<2.0.0"
-pillow               = ">=11.3.0,<12.0.0"
-unstructured         = ">=0.18.14,<0.19.0"
-unstructured-inference = ">=1.0.5,<2.0.0"
-
-# ── NLP / ML ──────────────────────────────────────────────
-langchain-text-splitters = ">=0.3.11,<0.4.0"
-langchain-openai         = ">=0.3.32,<0.4.0"
-langchain-community      = ">=0.3.29,<0.4.0"
-sentence-transformers    = ">=3.0.0"
-spacy                    = ">=3.8.7,<4.0.0"
-faiss-cpu                = ">=1.8.0,<1.9"
-rank-bm25                = ">=0.2.2,<0.3.0"
-numpy                    = ">=1.26"
-
-# ── Database / backend ────────────────────────────────────
-supabase                 = ">=2.18.1,<3.0.0"
-pgvector                 = ">=0.4.1,<0.5.0"
-psycopg                  = ">=3.2.10,<4.0.0"
-psycopg2                 = ">=2.9.10,<3.0.0"
+pymupdf                  = ">=1.26.3,<1.27"
 
 # ── AI / LLM ──────────────────────────────────────────────
+anthropic                = ">=0.40.0"
 openai                   = ">=1.106.1,<2.0.0"
 ollama                   = ">=0.6.0,<0.7.0"
 
-# ── Web frameworks ────────────────────────────────────────
-streamlit                = ">=1.50.0,<2.0.0"
-fastapi                  = ">=0.116.1,<0.117.0"
-flask                    = ">=3.1.2,<4.0.0"
-gradio                   = ">=5.49.0,<6.0.0"
-panel                    = ">=1.8.1,<2.0.0"
+# ── Embeddings & NLP ──────────────────────────────────────
+sentence-transformers    = ">=3.0.0"
+spacy                    = ">=3.8.7,<4.0.0"
+langchain-text-splitters = ">=0.3.11,<0.4.0"
+numpy                    = ">=1.26"
 
-# ── Data / utils ──────────────────────────────────────────
+# ── Database ──────────────────────────────────────────────
+supabase                 = ">=2.18.1,<3.0.0"
+
+# ── Utils ─────────────────────────────────────────────────
 pydantic                 = ">=2.11.7,<3.0.0"
-plotly                   = ">=6.4.0,<7.0.0"
-seaborn                  = ">=0.13.2,<0.14.0"
-dotenv                   = ">=0.9.9,<0.10.0"
-ipython                  = ">=9.5.0,<10.0.0"
+python-dotenv            = ">=1.0.0"
+requests                 = ">=2.32.0"
 
 [tool.poetry.group.dev.dependencies]
-# Dev-only — NOT installed in production (Railway/Docker)
 ipykernel  = "^6.30.1"
 jupyterlab = "^4.4.7"
 

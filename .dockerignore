@@ -1,0 +1,35 @@
+# ── Python ──────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# ── Virtual environments ─────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Jupyter / notebooks ──────────────────────────────────────────────────────
+**/*.ipynb
+**/.ipynb_checkpoints/
+**/.virtual_documents/
+
+# ── Test directories ──────────────────────────────────────────────────────────
+**/test/
+**/tests/
+
+# ── Git & editor artefacts ───────────────────────────────────────────────────
+.git/
+.gitignore
+.claude/
+*.md
+
+# ── Secrets & local config ───────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Docker files themselves ──────────────────────────────────────────────────
+Dockerfile
+docker-compose*.yml

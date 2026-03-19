@@ -6,15 +6,13 @@
 FROM python:3.12-slim
 
 # System dependencies
-# poppler-utils: PDF rendering (pymupdf/pdf2image)
-# libgomp1:      OpenMP for sentence-transformers / faiss
-# tesseract-ocr: OCR support (pytesseract)
+# poppler-utils: PDF rendering (pymupdf)
+# libgomp1:      OpenMP runtime for sentence-transformers
+# curl:          Poetry installer
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
     curl \
     poppler-utils \
     libgomp1 \
-    tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
 # Poetry — no virtualenvs inside the image

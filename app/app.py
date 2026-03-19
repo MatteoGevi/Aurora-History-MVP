@@ -14,11 +14,13 @@ import io
 from typing import List
 
 from components import render_pdf_page
-from src.retrieval import get_document_list, get_document_toc as get_db_toc, get_section_content
+from src.retrieval import get_document_list, get_document_toc as get_db_toc, get_section_content, save_user_session, load_user_session, save_assessment, load_last_assessment
 from src.pipeline import run_section_recall
 from config.constants import get_supabase, get_supabase_for_user, STORAGE_BUCKET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY
 from ingest.toc_chunk import fetch_pdf_from_storage
 from ingest.ingest import ingest_document, DuplicateDocumentError
+
+
 
 # Page configuration
 st.set_page_config(
@@ -49,8 +51,12 @@ if 'selected_section' not in st.session_state:
     st.session_state.selected_section = None
 if 'evaluation_result' not in st.session_state:
     st.session_state.evaluation_result = None
+if 'recalled_text' not in st.session_state:
+    st.session_state.recalled_text = None
 if 'page_input_widget' not in st.session_state:
     st.session_state.page_input_widget = 1
+if 'page_cache' not in st.session_state:
+    st.session_state.page_cache = {}
 
 # Auth session state
 if 'authenticated' not in st.session_state:
@@ -85,6 +91,29 @@ if not st.session_state.authenticated:
                         response.session.access_token
                     )
                     st.session_state.user = response.user
+                    # Restore last session position
+                    try:
+                        prev = load_user_session(
+                            response.user.id,
+                            sb=st.session_state.supabase_client,
+                        )
+                        if prev:
+                            st.session_state.selected_document_id = prev["document_id"]
+                            st.session_state.current_page = prev["page_num"]
+                            st.session_state.page_input_widget = prev["page_num"] + 1
+                            if prev.get("node_id"):
+                                st.session_state.selected_section = {"node_id": prev["node_id"]}
+                                saved = load_last_assessment(
+                                    user_id=response.user.id,
+                                    document_id=prev["document_id"],
+                                    node_id=prev["node_id"],
+                                    sb=st.session_state.supabase_client,
+                                )
+                                if saved:
+                                    st.session_state.recalled_text = saved.pop("_recalled_text", None)
+                                    st.session_state.evaluation_result = saved
+                    except Exception:
+                        pass  # non-critical — proceed without restoring
                     st.rerun()
                 except Exception as e:
                     st.error(f"Login failed: {e}")
@@ -176,7 +205,7 @@ def display_db_toc(document_id: str):
     navigation triggers a full rerun to update the PDF viewer."""
     st.markdown("### 📚 Contents")
 
-    toc = get_db_toc(document_id, sb=st.session_state.supabase_client)
+    toc = get_db_toc(document_id, sb=get_supabase())
 
     if not toc:
         st.info("No table of contents found")
@@ -207,7 +236,30 @@ def display_db_toc(document_id: str):
                 st.session_state.page_input_widget  = node["page_start"]
                 st.session_state.selected_section   = node
                 st.session_state.evaluation_result  = None
-                st.rerun()
+                st.session_state.recalled_text      = None
+                # Persist position to Supabase
+                try:
+                    user = st.session_state.get("user")
+                    if user:
+                        save_user_session(
+                            user_id=user.id,
+                            document_id=st.session_state.selected_document_id,
+                            node_id=node_id,
+                            page_num=node["page_start"] - 1,
+                            sb=st.session_state.supabase_client,
+                        )
+                        saved = load_last_assessment(
+                            user_id=user.id,
+                            document_id=st.session_state.selected_document_id,
+                            node_id=node_id,
+                            sb=st.session_state.supabase_client,
+                        )
+                        if saved:
+                            st.session_state.recalled_text     = saved.pop("_recalled_text", None)
+                            st.session_state.evaluation_result = saved
+                except Exception:
+                    pass  # non-critical
+                st.rerun(scope="app")
 
             if has_kids and expanded:
                 render_node(node["children"], level + 1)
@@ -226,10 +278,7 @@ with col_toggle:
 with col_logout:
     user_email = getattr(st.session_state.user, 'email', '') if st.session_state.user else ''
     if st.button(f"Logout", help=user_email):
-        st.session_state.authenticated = False
-        st.session_state.supabase_client = None
-        st.session_state.user = None
-        st.session_state.user_jwt = None
+        st.session_state.clear()
         st.rerun()
 
 def show_upload_widget():
@@ -323,6 +372,7 @@ if selected_doc_id != st.session_state.selected_document_id:
             st.session_state.pdf_doc = doc
             st.session_state.selected_document_id = selected_doc_id
             st.session_state.current_page = 0
+            st.session_state.page_cache = {}
             st.success(f"✅ Loaded: {title}")
             st.rerun()
 
@@ -364,7 +414,12 @@ if st.session_state.pdf_doc is not None:
     
     # Column 2: PDF Viewer
     with col2:
-        img = render_pdf_page(st.session_state.pdf_doc, st.session_state.current_page)
+        _cache_key = (st.session_state.selected_document_id, st.session_state.current_page)
+        if _cache_key not in st.session_state.page_cache:
+            st.session_state.page_cache[_cache_key] = render_pdf_page(
+                st.session_state.pdf_doc, st.session_state.current_page
+            )
+        img = st.session_state.page_cache[_cache_key]
         if img:
             st.image(img, use_container_width=True)
         
@@ -409,6 +464,20 @@ if st.session_state.pdf_doc is not None:
                                     sb=st.session_state.supabase_client,
                                 )
                                 st.session_state.evaluation_result = result
+                                st.session_state.recalled_text = recall
+                                try:
+                                    user = st.session_state.get("user")
+                                    if user:
+                                        save_assessment(
+                                            user_id=user.id,
+                                            document_id=st.session_state.selected_document_id,
+                                            node_id=section['node_id'],
+                                            recalled_text=recall,
+                                            result=result,
+                                            sb=st.session_state.supabase_client,
+                                        )
+                                except Exception:
+                                    pass  # non-critical
                                 st.rerun()
                             except anthropic.AuthenticationError:
                                 st.error("Invalid Claude API key. Check CLAUDE_API_KEY in your .env.")
@@ -443,10 +512,22 @@ if st.session_state.pdf_doc is not None:
                             st.markdown(f"**{criterion['id']}:** {criterion['score']}/2")
                             st.caption(criterion['feedback'])
 
-                if st.button("Try Another Section"):
-                    st.session_state.selected_section = None
-                    st.session_state.evaluation_result = None
-                    st.rerun()
+                if st.session_state.recalled_text:
+                    with st.expander("📝 Your answer"):
+                        st.write(st.session_state.recalled_text)
+
+                col_retry, col_next = st.columns(2)
+                with col_retry:
+                    if st.button("Try Again", use_container_width=True):
+                        st.session_state.evaluation_result = None
+                        st.session_state.recalled_text = None
+                        st.rerun()
+                with col_next:
+                    if st.button("Next Section", use_container_width=True):
+                        st.session_state.selected_section = None
+                        st.session_state.evaluation_result = None
+                        st.session_state.recalled_text = None
+                        st.rerun()
         else:
             st.markdown("### 📝 Assessment")
             st.info("Select a section from the Table of Contents to begin your recall assessment.")

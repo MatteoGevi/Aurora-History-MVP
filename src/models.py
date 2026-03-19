@@ -87,7 +87,7 @@ def generate_chat_claude(system: str, user: str, max_tokens: int = None, tempera
     if temperature is None:
         temperature = MODEL_TEMPERATURE
 
-    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
+    client = anthropic.Anthropic(api_key=CLAUDE_API_KEY, timeout=30.0)
 
     response = client.messages.create(
         model=CLAUDE_MODEL_NAME,

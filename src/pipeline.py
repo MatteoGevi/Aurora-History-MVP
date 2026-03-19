@@ -79,7 +79,7 @@ def _make_claude_adapter():
     from src.models import generate_chat_claude
 
     def call_llm(system: str, user: str) -> str:
-        return generate_chat_claude(system, user, max_tokens=2500, temperature=0.0)
+        return generate_chat_claude(system, user, max_tokens=800, temperature=0.0)
 
     return call_llm
 
@@ -119,18 +119,16 @@ def run_section_recall(
 
     call_llm = _make_claude_adapter()
 
-    question = _build_section_recall_prompt(context_text, call_llm)
-    key_concepts = _extract_key_concepts(context_text, call_llm)
-
+    # Single grading call — no pre-processing round-trips.
+    # The rubric and full context give Claude everything it needs to score recall.
     grade: Grade = grade_with_guardrails(
-        question=question,
+        question="Evaluate how well the student recalls the key concepts of this section.",
         student_answer=student_recall,
         context=context_text,
         call_llm=call_llm,
         max_retries=max_retries,
         allow_repair=True,
         repair_llm=call_llm,
-        key_concepts=key_concepts,
     )
 
     return {
@@ -203,14 +201,11 @@ def run_quick_check(
     Returns a Grade object; call .to_dict() to get a flat dict for display.
     """
     call_llm = _make_claude_adapter()
-    question = _build_section_recall_prompt(context_text, call_llm)
-    key_concepts = _extract_key_concepts(context_text, call_llm)
     return grade_with_guardrails(
-        question=question,
+        question="Evaluate how well the student recalls the key concepts of this section.",
         student_answer=student_recall,
         context=context_text,
         call_llm=call_llm,
-        key_concepts=key_concepts,
     )
 
 

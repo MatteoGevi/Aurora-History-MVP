@@ -284,34 +284,92 @@ def search_within_section(
     results.sort(key=lambda x: x['similarity'], reverse=True)
     return results[:top_k]
 
-def get_section_progress(user_id: str, document_id: str) -> List[Dict]:
-    """
-    Get user's progress across all sections.
-    Called when: Showing user which sections they've mastered
-    
-    Returns:
-        List of sections with progress stats
-        
-    Future enhancement - requires user_section_progress table
-    """
-    # TODO: Implement after adding progress tracking table
-    pass
-
-
-def update_section_progress(
+def save_user_session(
     user_id: str,
-    toc_node_id: int,
-    correct: bool,
-    total_questions: int
-):
+    document_id: str,
+    node_id: Optional[str] = None,
+    page_num: int = 0,
+    sb=None,
+) -> None:
+    """Upsert the user's last position into user_sessions."""
+    sb = sb or get_supabase()
+    sb.table("user_sessions").upsert({
+        "user_id":     user_id,
+        "document_id": document_id,
+        "node_id":     node_id,
+        "page_num":    page_num,
+        "updated_at":  "now()",
+    }, on_conflict="user_id").execute()
+
+
+def load_user_session(user_id: str, sb=None) -> Optional[Dict]:
     """
-    Update user's progress on a section after assessment.
-    Called when: User completes a quiz on a section
-    
-    Future enhancement
+    Return the user's last session or None if none exists.
+
+    Returns dict with keys: document_id, node_id, page_num
     """
-    # TODO: Implement after adding progress tracking
-    pass
+    sb = sb or get_supabase()
+    result = sb.table("user_sessions") \
+        .select("document_id, node_id, page_num") \
+        .eq("user_id", user_id) \
+        .single() \
+        .execute()
+    return result.data if result.data else None
+
+
+def save_assessment(
+    user_id: str,
+    document_id: str,
+    node_id: str,
+    recalled_text: str,
+    result: Dict,
+    sb=None,
+) -> None:
+    """Insert a new assessment row for this user+section attempt."""
+    sb = sb or get_supabase()
+    sb.table("assessments").insert({
+        "user_id":          user_id,
+        "document_id":      document_id,
+        "node_id":          node_id,
+        "recalled_text":    recalled_text,
+        "score":            result.get("total_score"),
+        "max_score":        result.get("max_score"),
+        "percentage":       result.get("percentage"),
+        "performance_level": result.get("performance_level"),
+        "overall_feedback": result.get("overall_feedback"),
+        "criteria_scores":  result.get("criteria_scores"),
+    }).execute()
+
+
+def load_last_assessment(
+    user_id: str,
+    document_id: str,
+    node_id: str,
+    sb=None,
+) -> Optional[Dict]:
+    """Return the most recent assessment for this user+section, or None."""
+    sb = sb or get_supabase()
+    result = sb.table("assessments") \
+        .select("recalled_text, score, max_score, percentage, performance_level, overall_feedback, criteria_scores") \
+        .eq("user_id", user_id) \
+        .eq("document_id", document_id) \
+        .eq("node_id", node_id) \
+        .order("created_at", desc=True) \
+        .limit(1) \
+        .execute()
+    if not result.data:
+        return None
+    row = result.data[0]
+    # Reconstruct the shape that app.py expects in evaluation_result
+    return {
+        "total_score":      row["score"],
+        "max_score":        row["max_score"],
+        "percentage":       row["percentage"],
+        "performance_level": row["performance_level"],
+        "overall_feedback": row["overall_feedback"],
+        "criteria_scores":  row["criteria_scores"],
+        "_recalled_text":   row["recalled_text"],
+    }
 
 if __name__ == "__main__":
     print("="*80)

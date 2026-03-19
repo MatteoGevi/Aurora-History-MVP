@@ -284,34 +284,37 @@ def search_within_section(
     results.sort(key=lambda x: x['similarity'], reverse=True)
     return results[:top_k]
 
-def get_section_progress(user_id: str, document_id: str) -> List[Dict]:
-    """
-    Get user's progress across all sections.
-    Called when: Showing user which sections they've mastered
-    
-    Returns:
-        List of sections with progress stats
-        
-    Future enhancement - requires user_section_progress table
-    """
-    # TODO: Implement after adding progress tracking table
-    pass
-
-
-def update_section_progress(
+def save_user_session(
     user_id: str,
-    toc_node_id: int,
-    correct: bool,
-    total_questions: int
-):
+    document_id: str,
+    node_id: Optional[str] = None,
+    page_num: int = 0,
+    sb=None,
+) -> None:
+    """Upsert the user's last position into user_sessions."""
+    sb = sb or get_supabase()
+    sb.table("user_sessions").upsert({
+        "user_id":     user_id,
+        "document_id": document_id,
+        "node_id":     node_id,
+        "page_num":    page_num,
+        "updated_at":  "now()",
+    }, on_conflict="user_id").execute()
+
+
+def load_user_session(user_id: str, sb=None) -> Optional[Dict]:
     """
-    Update user's progress on a section after assessment.
-    Called when: User completes a quiz on a section
-    
-    Future enhancement
+    Return the user's last session or None if none exists.
+
+    Returns dict with keys: document_id, node_id, page_num
     """
-    # TODO: Implement after adding progress tracking
-    pass
+    sb = sb or get_supabase()
+    result = sb.table("user_sessions") \
+        .select("document_id, node_id, page_num") \
+        .eq("user_id", user_id) \
+        .single() \
+        .execute()
+    return result.data if result.data else None
 
 if __name__ == "__main__":
     print("="*80)

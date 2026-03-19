@@ -14,7 +14,7 @@ import io
 from typing import List
 
 from components import render_pdf_page
-from src.retrieval import get_document_list, get_document_toc as get_db_toc, get_section_content
+from src.retrieval import get_document_list, get_document_toc as get_db_toc, get_section_content, save_user_session, load_user_session
 from src.pipeline import run_section_recall
 from config.constants import get_supabase, get_supabase_for_user, STORAGE_BUCKET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY
 from ingest.toc_chunk import fetch_pdf_from_storage
@@ -91,6 +91,20 @@ if not st.session_state.authenticated:
                         response.session.access_token
                     )
                     st.session_state.user = response.user
+                    # Restore last session position
+                    try:
+                        prev = load_user_session(
+                            response.user.id,
+                            sb=st.session_state.supabase_client,
+                        )
+                        if prev:
+                            st.session_state.selected_document_id = prev["document_id"]
+                            st.session_state.current_page = prev["page_num"]
+                            st.session_state.page_input_widget = prev["page_num"] + 1
+                            if prev.get("node_id"):
+                                st.session_state.selected_section = {"node_id": prev["node_id"]}
+                    except Exception:
+                        pass  # non-critical — proceed without restoring
                     st.rerun()
                 except Exception as e:
                     st.error(f"Login failed: {e}")
@@ -213,6 +227,19 @@ def display_db_toc(document_id: str):
                 st.session_state.page_input_widget  = node["page_start"]
                 st.session_state.selected_section   = node
                 st.session_state.evaluation_result  = None
+                # Persist position to Supabase
+                try:
+                    user = st.session_state.get("user")
+                    if user:
+                        save_user_session(
+                            user_id=user.id,
+                            document_id=st.session_state.selected_document_id,
+                            node_id=node_id,
+                            page_num=node["page_start"] - 1,
+                            sb=st.session_state.supabase_client,
+                        )
+                except Exception:
+                    pass  # non-critical
                 st.rerun()
 
             if has_kids and expanded:

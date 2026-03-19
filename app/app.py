@@ -49,6 +49,8 @@ if 'selected_section' not in st.session_state:
     st.session_state.selected_section = None
 if 'evaluation_result' not in st.session_state:
     st.session_state.evaluation_result = None
+if 'recalled_text' not in st.session_state:
+    st.session_state.recalled_text = None
 if 'page_input_widget' not in st.session_state:
     st.session_state.page_input_widget = 1
 
@@ -226,10 +228,7 @@ with col_toggle:
 with col_logout:
     user_email = getattr(st.session_state.user, 'email', '') if st.session_state.user else ''
     if st.button(f"Logout", help=user_email):
-        st.session_state.authenticated = False
-        st.session_state.supabase_client = None
-        st.session_state.user = None
-        st.session_state.user_jwt = None
+        st.session_state.clear()
         st.rerun()
 
 def show_upload_widget():
@@ -409,6 +408,7 @@ if st.session_state.pdf_doc is not None:
                                     sb=st.session_state.supabase_client,
                                 )
                                 st.session_state.evaluation_result = result
+                                st.session_state.recalled_text = recall
                                 st.rerun()
                             except anthropic.AuthenticationError:
                                 st.error("Invalid Claude API key. Check CLAUDE_API_KEY in your .env.")
@@ -443,9 +443,21 @@ if st.session_state.pdf_doc is not None:
                             st.markdown(f"**{criterion['id']}:** {criterion['score']}/2")
                             st.caption(criterion['feedback'])
 
-                if st.button("Try Another Section"):
-                    st.session_state.selected_section = None
-                    st.session_state.evaluation_result = None
+                if st.session_state.recalled_text:
+                    with st.expander("📝 Your answer"):
+                        st.write(st.session_state.recalled_text)
+
+                col_retry, col_next = st.columns(2)
+                with col_retry:
+                    if st.button("Try Again", use_container_width=True):
+                        st.session_state.evaluation_result = None
+                        st.session_state.recalled_text = None
+                        st.rerun()
+                with col_next:
+                    if st.button("Next Section", use_container_width=True):
+                        st.session_state.selected_section = None
+                        st.session_state.evaluation_result = None
+                        st.session_state.recalled_text = None
                     st.rerun()
         else:
             st.markdown("### 📝 Assessment")

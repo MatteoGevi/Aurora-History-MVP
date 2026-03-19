@@ -14,7 +14,7 @@ import io
 from typing import List
 
 from components import render_pdf_page
-from src.retrieval import get_document_list, get_document_toc as get_db_toc, get_section_content, save_user_session, load_user_session
+from src.retrieval import get_document_list, get_document_toc as get_db_toc, get_section_content, save_user_session, load_user_session, save_assessment, load_last_assessment
 from src.pipeline import run_section_recall
 from config.constants import get_supabase, get_supabase_for_user, STORAGE_BUCKET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY
 from ingest.toc_chunk import fetch_pdf_from_storage
@@ -103,6 +103,15 @@ if not st.session_state.authenticated:
                             st.session_state.page_input_widget = prev["page_num"] + 1
                             if prev.get("node_id"):
                                 st.session_state.selected_section = {"node_id": prev["node_id"]}
+                                saved = load_last_assessment(
+                                    user_id=response.user.id,
+                                    document_id=prev["document_id"],
+                                    node_id=prev["node_id"],
+                                    sb=st.session_state.supabase_client,
+                                )
+                                if saved:
+                                    st.session_state.recalled_text = saved.pop("_recalled_text", None)
+                                    st.session_state.evaluation_result = saved
                     except Exception:
                         pass  # non-critical — proceed without restoring
                     st.rerun()
@@ -227,6 +236,7 @@ def display_db_toc(document_id: str):
                 st.session_state.page_input_widget  = node["page_start"]
                 st.session_state.selected_section   = node
                 st.session_state.evaluation_result  = None
+                st.session_state.recalled_text      = None
                 # Persist position to Supabase
                 try:
                     user = st.session_state.get("user")
@@ -238,6 +248,15 @@ def display_db_toc(document_id: str):
                             page_num=node["page_start"] - 1,
                             sb=st.session_state.supabase_client,
                         )
+                        saved = load_last_assessment(
+                            user_id=user.id,
+                            document_id=st.session_state.selected_document_id,
+                            node_id=node_id,
+                            sb=st.session_state.supabase_client,
+                        )
+                        if saved:
+                            st.session_state.recalled_text     = saved.pop("_recalled_text", None)
+                            st.session_state.evaluation_result = saved
                 except Exception:
                     pass  # non-critical
                 st.rerun()
@@ -446,6 +465,19 @@ if st.session_state.pdf_doc is not None:
                                 )
                                 st.session_state.evaluation_result = result
                                 st.session_state.recalled_text = recall
+                                try:
+                                    user = st.session_state.get("user")
+                                    if user:
+                                        save_assessment(
+                                            user_id=user.id,
+                                            document_id=st.session_state.selected_document_id,
+                                            node_id=section['node_id'],
+                                            recalled_text=recall,
+                                            result=result,
+                                            sb=st.session_state.supabase_client,
+                                        )
+                                except Exception:
+                                    pass  # non-critical
                                 st.rerun()
                             except anthropic.AuthenticationError:
                                 st.error("Invalid Claude API key. Check CLAUDE_API_KEY in your .env.")

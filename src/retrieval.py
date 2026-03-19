@@ -316,6 +316,61 @@ def load_user_session(user_id: str, sb=None) -> Optional[Dict]:
         .execute()
     return result.data if result.data else None
 
+
+def save_assessment(
+    user_id: str,
+    document_id: str,
+    node_id: str,
+    recalled_text: str,
+    result: Dict,
+    sb=None,
+) -> None:
+    """Insert a new assessment row for this user+section attempt."""
+    sb = sb or get_supabase()
+    sb.table("assessments").insert({
+        "user_id":          user_id,
+        "document_id":      document_id,
+        "node_id":          node_id,
+        "recalled_text":    recalled_text,
+        "score":            result.get("total_score"),
+        "max_score":        result.get("max_score"),
+        "percentage":       result.get("percentage"),
+        "performance_level": result.get("performance_level"),
+        "overall_feedback": result.get("overall_feedback"),
+        "criteria_scores":  result.get("criteria_scores"),
+    }).execute()
+
+
+def load_last_assessment(
+    user_id: str,
+    document_id: str,
+    node_id: str,
+    sb=None,
+) -> Optional[Dict]:
+    """Return the most recent assessment for this user+section, or None."""
+    sb = sb or get_supabase()
+    result = sb.table("assessments") \
+        .select("recalled_text, score, max_score, percentage, performance_level, overall_feedback, criteria_scores") \
+        .eq("user_id", user_id) \
+        .eq("document_id", document_id) \
+        .eq("node_id", node_id) \
+        .order("created_at", desc=True) \
+        .limit(1) \
+        .execute()
+    if not result.data:
+        return None
+    row = result.data[0]
+    # Reconstruct the shape that app.py expects in evaluation_result
+    return {
+        "total_score":      row["score"],
+        "max_score":        row["max_score"],
+        "percentage":       row["percentage"],
+        "performance_level": row["performance_level"],
+        "overall_feedback": row["overall_feedback"],
+        "criteria_scores":  row["criteria_scores"],
+        "_recalled_text":   row["recalled_text"],
+    }
+
 if __name__ == "__main__":
     print("="*80)
     print("ASSESSMENT APP - RETRIEVAL WORKFLOW")

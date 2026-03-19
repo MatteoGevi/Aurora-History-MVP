@@ -14,7 +14,7 @@ import io
 from typing import List
 
 from components import render_pdf_page
-from src.retrieval import get_document_list, get_document_toc as get_db_toc, get_section_content, save_user_session, load_user_session, save_assessment, load_last_assessment
+from src.retrieval import get_document_list, get_document_toc as get_db_toc, get_section_content, save_user_session, load_user_session, save_assessment, load_last_assessment, load_document_scores
 from src.pipeline import run_section_recall
 from config.constants import get_supabase, get_supabase_for_user, STORAGE_BUCKET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY
 from ingest.toc_chunk import fetch_pdf_from_storage
@@ -217,6 +217,19 @@ def display_db_toc(document_id: str):
         else None
     )
 
+    # Load scores for all nodes in one query
+    scores: dict = {}
+    user = st.session_state.get("user")
+    if user:
+        try:
+            scores = load_document_scores(
+                user_id=user.id,
+                document_id=document_id,
+                sb=st.session_state.supabase_client,
+            )
+        except Exception:
+            pass
+
     def render_node(nodes, level=0):
         for node in nodes:
             node_id   = node["node_id"]
@@ -226,7 +239,16 @@ def display_db_toc(document_id: str):
 
             pad   = "　" * level
             arrow = ("▼ " if expanded else "▶ ") if has_kids else "    "
-            label = f"{pad}{arrow}{node['title']}"
+
+            node_score = scores.get(node_id)
+            if node_score and node_score.get("percentage") is not None:
+                pct = node_score["percentage"]
+                badge = "✅" if pct >= 70 else "📖"
+                score_tag = f" {badge} {pct:.0f}%"
+            else:
+                score_tag = ""
+
+            label = f"{pad}{arrow}{node['title']}{score_tag}"
 
             if st.button(label, key=f"toc_{node_id}", use_container_width=True):
                 if has_kids:

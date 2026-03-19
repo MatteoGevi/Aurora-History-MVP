@@ -341,6 +341,31 @@ def save_assessment(
     }).execute()
 
 
+def load_document_scores(user_id: str, document_id: str, sb=None) -> Dict[str, Dict]:
+    """Return the most recent assessment score per node_id for this user+document.
+
+    Returns:
+        { node_id: {"score": int, "max_score": int, "percentage": float}, ... }
+    """
+    sb = sb or get_supabase()
+    result = sb.table("assessments") \
+        .select("node_id, score, max_score, percentage") \
+        .eq("user_id", user_id) \
+        .eq("document_id", document_id) \
+        .order("created_at", desc=True) \
+        .execute()
+    scores: Dict[str, Dict] = {}
+    for row in result.data or []:
+        nid = row["node_id"]
+        if nid not in scores:  # keep most-recent only (results are DESC by created_at)
+            scores[nid] = {
+                "score": row["score"],
+                "max_score": row["max_score"],
+                "percentage": row["percentage"],
+            }
+    return scores
+
+
 def load_last_assessment(
     user_id: str,
     document_id: str,

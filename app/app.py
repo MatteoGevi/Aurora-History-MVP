@@ -259,7 +259,7 @@ def display_db_toc(document_id: str):
                             st.session_state.evaluation_result = saved
                 except Exception:
                     pass  # non-critical
-                st.rerun()
+                st.rerun(scope="app")
 
             if has_kids and expanded:
                 render_node(node["children"], level + 1)
@@ -527,7 +527,7 @@ if st.session_state.pdf_doc is not None:
                         st.session_state.selected_section = None
                         st.session_state.evaluation_result = None
                         st.session_state.recalled_text = None
-                    st.rerun()
+                        st.rerun()
         else:
             st.markdown("### 📝 Assessment")
             st.info("Select a section from the Table of Contents to begin your recall assessment.")

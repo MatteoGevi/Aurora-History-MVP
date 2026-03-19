@@ -1,13 +1,12 @@
 # ─────────────────────────────────────────────
 # Aurora — Dockerfile for Railway deployment
-# Uses Poetry with native [tool.poetry.dependencies] format
 # ─────────────────────────────────────────────
 
 FROM python:3.12-slim
 
 # System dependencies
 # poppler-utils: PDF rendering (pymupdf)
-# libgomp1:      OpenMP runtime for sentence-transformers
+# libgomp1:      OpenMP runtime for spacy
 # curl:          Poetry installer
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
@@ -28,13 +27,7 @@ RUN curl -sSL https://install.python-poetry.org | python3 - \
 
 WORKDIR /app
 
-# Install ONLY production dependencies — excludes [dev] group (jupyter, ipykernel)
 COPY pyproject.toml poetry.lock* ./
-# Install CPU-only PyTorch before Poetry runs.
-# sentence-transformers depends on torch; without this, pip pulls the full
-# CUDA build (~2 GB of nvidia-* wheels) which makes the image too large to push.
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
-
 RUN poetry lock && poetry install --no-root --only main
 
 # Download SpaCy model required by the ingestion pipeline's text splitter

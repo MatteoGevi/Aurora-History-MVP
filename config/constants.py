@@ -38,9 +38,7 @@ def get_supabase_for_user(jwt_token: str):
 supabase = get_supabase()
 
 # Models
-HUGGING_FACE_HUB_TOKEN = os.environ.get("HUGGING_FACE_HUB_TOKEN")
-EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
-QA_EMBEDDING_MODEL = "text-embedding-3-small"
+EMBEDDING_MODEL = "text-embedding-3-small"
 
 # Parameters
 TARGET_CHARS = 1000

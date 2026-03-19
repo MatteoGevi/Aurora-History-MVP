@@ -192,8 +192,8 @@ def ingest_document(
         )
         print(f"✅ Generated embeddings with shape: {embeddings.shape}")
 
-        # Validate
-        expected_dim = 384 if "small" in EMBEDDING_MODEL else 768
+        # Validate (text-embedding-3-small → 1536 dims)
+        expected_dim = 1536 if "3-small" in EMBEDDING_MODEL else 384
         passed, issues = validate_embeddings(embeddings, expected_dim=expected_dim)
         if not passed:
             print("⚠️  Validation warnings:", issues)

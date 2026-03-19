@@ -20,6 +20,8 @@ from config.constants import get_supabase, get_supabase_for_user, STORAGE_BUCKET
 from ingest.toc_chunk import fetch_pdf_from_storage
 from ingest.ingest import ingest_document, DuplicateDocumentError
 
+
+
 # Page configuration
 st.set_page_config(
     page_title="AI Learning Assistant",
@@ -53,6 +55,8 @@ if 'recalled_text' not in st.session_state:
     st.session_state.recalled_text = None
 if 'page_input_widget' not in st.session_state:
     st.session_state.page_input_widget = 1
+if 'page_cache' not in st.session_state:
+    st.session_state.page_cache = {}
 
 # Auth session state
 if 'authenticated' not in st.session_state:
@@ -178,7 +182,7 @@ def display_db_toc(document_id: str):
     navigation triggers a full rerun to update the PDF viewer."""
     st.markdown("### 📚 Contents")
 
-    toc = get_db_toc(document_id, sb=st.session_state.supabase_client)
+    toc = get_db_toc(document_id, sb=get_supabase())
 
     if not toc:
         st.info("No table of contents found")
@@ -322,6 +326,7 @@ if selected_doc_id != st.session_state.selected_document_id:
             st.session_state.pdf_doc = doc
             st.session_state.selected_document_id = selected_doc_id
             st.session_state.current_page = 0
+            st.session_state.page_cache = {}
             st.success(f"✅ Loaded: {title}")
             st.rerun()
 
@@ -363,7 +368,12 @@ if st.session_state.pdf_doc is not None:
     
     # Column 2: PDF Viewer
     with col2:
-        img = render_pdf_page(st.session_state.pdf_doc, st.session_state.current_page)
+        _cache_key = (st.session_state.selected_document_id, st.session_state.current_page)
+        if _cache_key not in st.session_state.page_cache:
+            st.session_state.page_cache[_cache_key] = render_pdf_page(
+                st.session_state.pdf_doc, st.session_state.current_page
+            )
+        img = st.session_state.page_cache[_cache_key]
         if img:
             st.image(img, use_container_width=True)
         

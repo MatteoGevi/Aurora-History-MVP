@@ -18,8 +18,8 @@ def render_pdf_page(doc, page_num):
     """Render a specific PDF page as an image"""
     try:
         page = doc[page_num]
-        # Render page at 2x resolution for better quality
-        mat = fitz.Matrix(2, 2)
+        # 1.5x is sharp enough for a container-width display and ~44% faster than 2x
+        mat = fitz.Matrix(1.5, 1.5)
         pix = page.get_pixmap(matrix=mat)
         img_data = pix.tobytes("png")
         img = Image.open(io.BytesIO(img_data))

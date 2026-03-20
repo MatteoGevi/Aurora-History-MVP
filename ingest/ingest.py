@@ -111,6 +111,12 @@ def ingest_document(
     print(f"✅ Document hash: {doc_hash}")
     print(f"✅ Found {len(toc_flat)} sections across {page_count} pages")
 
+    if not toc_flat:
+        raise ValueError(
+            "No Table of Contents was detected in this PDF. "
+            "Aurora requires a PDF with embedded bookmarks/outline to extract and chunk sections."
+        )
+
     # Derive title from filename (stem) — more reliable than ToC first entry,
     # which is often "Cover", "Title Page", etc.
     doc_title = Path(effective_filename).stem if effective_filename else (
@@ -185,6 +191,11 @@ def ingest_document(
 
         # Generate embeddings
         texts = [chunk["text"] for chunk in chunks]
+        if not texts:
+            raise ValueError(
+                "No text chunks were extracted from this PDF. "
+                "The document may have no detectable Table of Contents or contain only images/scanned pages."
+            )
         embeddings = generate_embeddings(
             texts,
             model_name=EMBEDDING_MODEL,

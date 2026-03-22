@@ -61,17 +61,26 @@ if 'user' not in st.session_state:
     st.session_state.user = None
 if 'user_jwt' not in st.session_state:
     st.session_state.user_jwt = None
+if 'refresh_token' not in st.session_state:
+    st.session_state.refresh_token = None
 
 # ── Login gate ────────────────────────────────────────────────────────────────
+# ── Login gate ────────────────────────────────────────────────────────────────
+# Replace lines 66–132 in app.py with this block
+
 if not st.session_state.authenticated:
-    st.title("🦉 Aurora - Empowered Learning Environment")
-    st.markdown("Sign in to continue")
+    st.title("🦉 Aurora Learning Platform")
+    st.markdown("*AI-powered recall assessment grounded in your own study materials.*")
+    st.markdown("---")
+
     tab_login, tab_signup = st.tabs(["Login", "Sign Up"])
 
+    # ── LOGIN TAB ──────────────────────────────────────────────────────────────
     with tab_login:
-        login_email = st.text_input("Email", key="login_email")
+        login_email    = st.text_input("Email", key="login_email")
         login_password = st.text_input("Password", type="password", key="login_password")
-        if st.button("Login", type="primary", key="login_btn"):
+
+        if st.button("Login", type="primary", key="login_btn", use_container_width=True):
             if login_email and login_password:
                 try:
                     from supabase import create_client
@@ -80,11 +89,13 @@ if not st.session_state.authenticated:
                         {"email": login_email, "password": login_password}
                     )
                     st.session_state.authenticated = True
-                    st.session_state.user_jwt = response.session.access_token
+                    st.session_state.user_jwt      = response.session.access_token
+                    st.session_state.refresh_token = response.session.refresh_token
                     st.session_state.supabase_client = get_supabase_for_user(
                         response.session.access_token
                     )
                     st.session_state.user = response.user
+
                     # Restore last session position
                     try:
                         prev = load_user_session(
@@ -93,8 +104,8 @@ if not st.session_state.authenticated:
                         )
                         if prev:
                             st.session_state.selected_document_id = prev["document_id"]
-                            st.session_state.current_page = prev["page_num"]
-                            st.session_state.page_input_widget = prev["page_num"] + 1
+                            st.session_state.current_page         = prev["page_num"]
+                            st.session_state.page_input_widget    = prev["page_num"] + 1
                             if prev.get("node_id"):
                                 st.session_state.selected_section = {"node_id": prev["node_id"]}
                                 saved = load_last_assessment(
@@ -104,30 +115,116 @@ if not st.session_state.authenticated:
                                     sb=st.session_state.supabase_client,
                                 )
                                 if saved:
-                                    st.session_state.recalled_text = saved.pop("_recalled_text", None)
+                                    st.session_state.recalled_text     = saved.pop("_recalled_text", None)
                                     st.session_state.evaluation_result = saved
                     except Exception:
                         pass  # non-critical — proceed without restoring
+
                     st.rerun()
                 except Exception as e:
                     st.error(f"Login failed: {e}")
             else:
-                st.warning("Please enter your email and password")
+                st.warning("Please enter your email and password.")
 
+    # ── SIGN UP TAB ────────────────────────────────────────────────────────────
     with tab_signup:
-        signup_email = st.text_input("Email", key="signup_email")
+        signup_email    = st.text_input("Email", key="signup_email")
         signup_password = st.text_input("Password", type="password", key="signup_password")
-        if st.button("Sign Up", type="primary", key="signup_btn"):
+
+        # ── GDPR Consent block ─────────────────────────────────────────────────
+        st.markdown("---")
+        st.markdown("#### Before you continue")
+
+        st.info(
+            "**Aurora is an AI-powered learning assessment tool in closed beta.**\n\n"
+            "By creating an account, Aurora will:\n"
+            "- Store your **email address** to authenticate you\n"
+            "- Store **PDF documents** you upload as study materials\n"
+            "- Process your **written responses** using the OpenAI API (GPT-4o mini) "
+            "to generate assessments — this means your text is sent to OpenAI's servers "
+            "for inference. OpenAI does not use API data for model training.\n"
+            "- Store your **evaluation results** linked to your account\n\n"
+            "All data is hosted on EU infrastructure (Supabase, Frankfurt). "
+            "You can request deletion of your data at any time by contacting "
+            "**privacy@aurora-app.io**.\n\n"
+            "This is a **beta product** — it may contain bugs and is not guaranteed to be "
+            "available at all times. All beta data will be deleted within 30 days of the "
+            "beta programme ending."
+        )
+
+        consent = st.checkbox(
+            "I have read and understood how Aurora uses my data, "
+            "and I agree to the [Terms & Conditions](https://ai-aurora.com/legal/terms) "
+            "and [Privacy Policy](https://ai-aurora.com/legal/privacy).",
+            key="consent_checkbox"
+        )
+
+        beta_feedback = st.checkbox(
+            "I'm happy to be contacted for feedback during the beta programme. *(optional)*",
+            key="beta_feedback_checkbox"
+        )
+
+        if st.button(
+            "Create Account",
+            type="primary",
+            key="signup_btn",
+            use_container_width=True,
+            disabled=not consent,   # button is greyed out until consent is given
+        ):
             if signup_email and signup_password:
                 try:
                     from supabase import create_client
+                    import datetime
+
                     auth_client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-                    auth_client.auth.sign_up({"email": signup_email, "password": signup_password})
-                    st.success("Account created! Check your email to confirm your registration, then log in.")
+                    response = auth_client.auth.sign_up({
+                        "email": signup_email,
+                        "password": signup_password,
+                        "options": {
+                            "data": {
+                                # Stored in auth.users raw_user_meta_data
+                                "consent_given_at":      datetime.datetime.utcnow().isoformat(),
+                                "consent_policy_version": "beta_v1",
+                                "beta_feedback_opt_in":   beta_feedback,
+                            }
+                        }
+                    })
+
+                    # Also write consent timestamp to profiles table via service client
+                    # The trigger creates the profile row on signup; we update it here
+                    try:
+                        from config.constants import get_supabase
+                        admin_client = get_supabase()
+                        if response.user:
+                            admin_client.table("profiles").update({
+                                "consent_given_at":      datetime.datetime.utcnow().isoformat(),
+                                "consent_policy_version": "beta_v1",
+                            }).eq("id", response.user.id).execute()
+                    except Exception:
+                        pass  # non-critical — consent is already in auth metadata
+
+                    st.success(
+                        "✅ Account created! Check your email to confirm your registration, "
+                        "then log in."
+                    )
                 except Exception as e:
                     st.error(f"Sign up failed: {e}")
             else:
-                st.warning("Please enter email and password")
+                st.warning("Please enter your email and password.")
+
+        if not consent:
+            st.caption(
+                "You must accept the Terms & Conditions and Privacy Policy to create an account."
+            )
+
+    # ── Footer ─────────────────────────────────────────────────────────────────
+    st.markdown("---")
+    st.caption(
+        "Aurora · Closed Beta · "
+        "[Privacy Policy](https://ai-aurora.com/legal/privacy) · "
+        "[Terms & Conditions](https://ai-aurora.com/legal/terms) · "
+        "Questions? privacy@aurora-app.io"
+    )
 
     st.stop()
 
@@ -151,6 +248,20 @@ st.markdown("---")
 try:
     docs = get_document_list(sb=st.session_state.supabase_client)
 except Exception as e:
+    # Auto-refresh expired JWT and retry once
+    if "JWT expired" in str(e) and st.session_state.get("refresh_token"):
+        try:
+            from supabase import create_client
+            _auth_client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+            _new_session = _auth_client.auth.refresh_session(st.session_state.refresh_token)
+            st.session_state.user_jwt      = _new_session.session.access_token
+            st.session_state.refresh_token = _new_session.session.refresh_token
+            st.session_state.supabase_client = get_supabase_for_user(
+                _new_session.session.access_token
+            )
+            st.rerun()
+        except Exception:
+            pass  # fall through to the error display below
     st.error(f"Could not reach the database: {e}")
     if st.button("Retry"):
         st.rerun()
@@ -208,6 +319,9 @@ if st.session_state.pdf_doc is not None:
                 if new_page != st.session_state.current_page:
                     st.session_state.current_page = new_page
 
+            if '_pending_page' in st.session_state:
+                st.session_state.page_input_widget = st.session_state.pop('_pending_page')
+
             st.number_input(
                 "Go to page:",
                 min_value=1,
@@ -237,7 +351,7 @@ if st.session_state.pdf_doc is not None:
         with nav_col1:
             if st.button("⬅️ Previous", key="prev_page", disabled=st.session_state.current_page == 0):
                 st.session_state.current_page -= 1
-                st.session_state.page_input_widget = st.session_state.current_page + 1
+                st.session_state._pending_page = st.session_state.current_page + 1
                 st.rerun()
         with nav_col2:
             total_pages = len(st.session_state.pdf_doc)
@@ -245,7 +359,7 @@ if st.session_state.pdf_doc is not None:
         with nav_col3:
             if st.button("Next ➡️", key="next_page", disabled=st.session_state.current_page >= len(st.session_state.pdf_doc) - 1):
                 st.session_state.current_page += 1
-                st.session_state.page_input_widget = st.session_state.current_page + 1
+                st.session_state._pending_page = st.session_state.current_page + 1
                 st.rerun()
     
     # Column 3: Assessment Interface

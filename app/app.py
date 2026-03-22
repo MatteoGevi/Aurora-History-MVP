@@ -430,10 +430,30 @@ if st.session_state.pdf_doc is not None:
                     st.info(f"💡 {eval_data['overall_feedback']}")
 
                 if eval_data.get('criteria_scores'):
-                    with st.expander("📋 Detailed Breakdown"):
+                    _SCORE_COLORS = {
+                        0: ("#c62828", "#ffebee"),  # red: text, background
+                        1: ("#e65100", "#fff3e0"),  # orange
+                        2: ("#1b5e20", "#e8f5e9"),  # green
+                    }
+                    with st.expander("📋 Detailed Breakdown", expanded=True):
                         for criterion in eval_data['criteria_scores']:
-                            st.markdown(f"**{criterion['id']}:** {criterion['score']}/2")
-                            st.caption(criterion['feedback'])
+                            s = criterion['score']
+                            text_col, bg_col = _SCORE_COLORS.get(s, ("#333", "#f5f5f5"))
+                            title = criterion.get('title', criterion['id'])
+                            st.markdown(
+                                f"""<div style="background:{bg_col};border-left:4px solid {text_col};
+                                border-radius:6px;padding:10px 14px;margin-bottom:8px;">
+                                <span style="color:{text_col};font-weight:700;font-size:0.95em;">
+                                {criterion['id']} · {title}</span>
+                                <span style="float:right;color:{text_col};font-weight:700;">{s}/2</span>
+                                <br><span style="color:#444;font-size:0.88em;">{criterion['feedback']}</span>
+                                </div>""",
+                                unsafe_allow_html=True,
+                            )
+
+                if eval_data.get('key_concepts'):
+                    with st.expander("🔑 Key concepts for this section"):
+                        st.markdown(eval_data['key_concepts'])
 
                 if st.session_state.recalled_text:
                     with st.expander("📝 Your answer"):

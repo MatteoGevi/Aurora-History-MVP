@@ -61,6 +61,8 @@ if 'user' not in st.session_state:
     st.session_state.user = None
 if 'user_jwt' not in st.session_state:
     st.session_state.user_jwt = None
+if 'refresh_token' not in st.session_state:
+    st.session_state.refresh_token = None
 
 # ── Login gate ────────────────────────────────────────────────────────────────
 # ── Login gate ────────────────────────────────────────────────────────────────
@@ -88,6 +90,7 @@ if not st.session_state.authenticated:
                     )
                     st.session_state.authenticated = True
                     st.session_state.user_jwt      = response.session.access_token
+                    st.session_state.refresh_token = response.session.refresh_token
                     st.session_state.supabase_client = get_supabase_for_user(
                         response.session.access_token
                     )
@@ -245,6 +248,20 @@ st.markdown("---")
 try:
     docs = get_document_list(sb=st.session_state.supabase_client)
 except Exception as e:
+    # Auto-refresh expired JWT and retry once
+    if "JWT expired" in str(e) and st.session_state.get("refresh_token"):
+        try:
+            from supabase import create_client
+            _auth_client = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+            _new_session = _auth_client.auth.refresh_session(st.session_state.refresh_token)
+            st.session_state.user_jwt      = _new_session.session.access_token
+            st.session_state.refresh_token = _new_session.session.refresh_token
+            st.session_state.supabase_client = get_supabase_for_user(
+                _new_session.session.access_token
+            )
+            st.rerun()
+        except Exception:
+            pass  # fall through to the error display below
     st.error(f"Could not reach the database: {e}")
     if st.button("Retry"):
         st.rerun()

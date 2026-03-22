@@ -319,6 +319,9 @@ if st.session_state.pdf_doc is not None:
                 if new_page != st.session_state.current_page:
                     st.session_state.current_page = new_page
 
+            if '_pending_page' in st.session_state:
+                st.session_state.page_input_widget = st.session_state.pop('_pending_page')
+
             st.number_input(
                 "Go to page:",
                 min_value=1,
@@ -348,7 +351,7 @@ if st.session_state.pdf_doc is not None:
         with nav_col1:
             if st.button("⬅️ Previous", key="prev_page", disabled=st.session_state.current_page == 0):
                 st.session_state.current_page -= 1
-                st.session_state.page_input_widget = st.session_state.current_page + 1
+                st.session_state._pending_page = st.session_state.current_page + 1
                 st.rerun()
         with nav_col2:
             total_pages = len(st.session_state.pdf_doc)
@@ -356,7 +359,7 @@ if st.session_state.pdf_doc is not None:
         with nav_col3:
             if st.button("Next ➡️", key="next_page", disabled=st.session_state.current_page >= len(st.session_state.pdf_doc) - 1):
                 st.session_state.current_page += 1
-                st.session_state.page_input_widget = st.session_state.current_page + 1
+                st.session_state._pending_page = st.session_state.current_page + 1
                 st.rerun()
     
     # Column 3: Assessment Interface

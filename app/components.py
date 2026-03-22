@@ -192,7 +192,7 @@ def display_db_toc(document_id: str):
                     st.session_state[exp_key] = not expanded
                 # always navigate to the node's page
                 st.session_state.current_page      = node["page_start"] - 1
-                st.session_state.page_input_widget = node["page_start"]
+                st.session_state._pending_page = node["page_start"]
                 st.session_state.selected_section  = node
                 st.session_state.evaluation_result = None
                 st.session_state.recalled_text     = None

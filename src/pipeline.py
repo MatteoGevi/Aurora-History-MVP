@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Dict
 
 from src.retrieval import get_section_content
-from src.guardrailed_grader import grade_with_guardrails, Grade, MAX_SCORE
+from src.guardrailed_grader import grade_with_guardrails, Grade, MAX_SCORE, CRITERIA_BY_ID
 
 def _build_section_recall_prompt(context: str, call_llm) -> str:
     """Generate a specific recall question from section content."""
@@ -119,8 +119,9 @@ def run_section_recall(
 
     call_llm = _make_claude_adapter()
 
-    # Single grading call — no pre-processing round-trips.
-    # The rubric and full context give Claude everything it needs to score recall.
+    # Extract key concepts first to anchor C1/C2 scoring to section-specific facts.
+    key_concepts = _extract_key_concepts(context_text, call_llm)
+
     grade: Grade = grade_with_guardrails(
         question="Evaluate how well the student recalls the key concepts of this section.",
         student_answer=student_recall,
@@ -129,6 +130,7 @@ def run_section_recall(
         max_retries=max_retries,
         allow_repair=True,
         repair_llm=call_llm,
+        key_concepts=key_concepts,
     )
 
     return {
@@ -137,13 +139,19 @@ def run_section_recall(
         "percentage":        grade.percentage,
         "overall_feedback":  grade.overall_feedback,
         "criteria_scores": [
-            {"id": cs.criterion_id, "score": cs.score, "feedback": cs.feedback}
+            {
+                "id":       cs.criterion_id,
+                "title":    CRITERIA_BY_ID[cs.criterion_id]["title"],
+                "score":    cs.score,
+                "feedback": cs.feedback,
+            }
             for cs in grade.criteria_scores
         ],
         "performance_level": grade.performance_level,
         "interpretation":    grade.interpretation,
         "section_title":     content["section"]["title"],
         "page_range":        content["page_range"],
+        "key_concepts":      key_concepts,
     }
 
 

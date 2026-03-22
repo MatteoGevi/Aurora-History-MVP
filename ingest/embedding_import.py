@@ -17,12 +17,13 @@ def _get_client() -> OpenAI:
 def generate_embeddings(
     texts: List[str],
     model_name: str = "text-embedding-3-small",
+    dimensions: int = 384,
     batch_size: int = 64,
     normalize: bool = True,
     show_progress: bool = True,
     **_kwargs,          # absorbs legacy args (e.g. old sentence-transformers params)
 ) -> np.ndarray:
-    """Generate embeddings via OpenAI API (text-embedding-3-small, 1536-dim)."""
+    """Generate embeddings via OpenAI API (text-embedding-3-small, 384-dim)."""
     client = _get_client()
     all_embeddings = []
     total_batches = (len(texts) + batch_size - 1) // batch_size
@@ -31,7 +32,7 @@ def generate_embeddings(
         batch = texts[i : i + batch_size]
         if show_progress:
             print(f"⚙️  Embedding batch {i // batch_size + 1}/{total_batches} ({len(batch)} texts)...")
-        response = client.embeddings.create(input=batch, model=model_name)
+        response = client.embeddings.create(input=batch, model=model_name, dimensions=dimensions)
         batch_embeddings = [item.embedding for item in response.data]
         all_embeddings.extend(batch_embeddings)
 

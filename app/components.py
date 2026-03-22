@@ -2,6 +2,8 @@ import streamlit as st
 import pymupdf as fitz
 from PIL import Image
 import io
+import unicodedata
+import re
 
 from src.retrieval import get_document_toc as get_db_toc, save_user_session, load_last_assessment, load_document_scores
 from config.constants import get_supabase, STORAGE_BUCKET, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
@@ -242,7 +244,10 @@ def show_upload_widget():
 
         if ingest_clicked:
             pdf_bytes = uploaded_file.getvalue()
-            filename = uploaded_file.name
+            raw_name = uploaded_file.name
+            # Normalize accented chars to ASCII equivalents, then strip anything remaining non-safe
+            normalized = unicodedata.normalize("NFKD", raw_name).encode("ascii", "ignore").decode("ascii")
+            filename = re.sub(r"[^\w\-. ]", "-", normalized).strip()
             user_id = st.session_state.user.id if st.session_state.user else None
 
             # Upload to Supabase Storage (service role bypasses storage RLS)

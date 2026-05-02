@@ -13,6 +13,7 @@ from ingest.toc_chunk import (
     fetch_pdf_from_storage,
     build_toc,
     chunk_sections_with_hierarchy,
+    chunk_by_pages,
     flatten
 )
 
@@ -111,11 +112,9 @@ def ingest_document(
     print(f"✅ Document hash: {doc_hash}")
     print(f"✅ Found {len(toc_flat)} sections across {page_count} pages")
 
-    if not toc_flat:
-        raise ValueError(
-            "No Table of Contents was detected in this PDF. "
-            "Aurora requires a PDF with embedded bookmarks/outline to extract and chunk sections."
-        )
+    fallback_mode = not toc_flat
+    if fallback_mode:
+        print("⚠️ No ToC or headings detected — using page-based fallback chunking.")
 
     # Derive title from filename (stem) — more reliable than ToC first entry,
     # which is often "Cover", "Title Page", etc.
@@ -181,20 +180,26 @@ def ingest_document(
         print("\n" + "=" * 80)
         print("STEP 5/6: CHUNKING & EMBEDDING")
         print("=" * 80)
-        chunks = chunk_sections_with_hierarchy(
-            pdf_bytes,
-            toc,
-            chunk_size=TARGET_CHARS,
-            chunk_overlap=OVERLAP_CHARS
-        )
+        if fallback_mode:
+            chunks = chunk_by_pages(pdf_bytes)
+        else:
+            chunks = chunk_sections_with_hierarchy(
+                pdf_bytes,
+                toc,
+                chunk_size=TARGET_CHARS,
+                chunk_overlap=OVERLAP_CHARS
+            )
+            if not chunks:
+                print("⚠️  ToC-based chunking produced no chunks — retrying with page-based fallback")
+                chunks = chunk_by_pages(pdf_bytes)
         print(f"✅ Generated {len(chunks)} chunks")
 
         # Generate embeddings
         texts = [chunk["text"] for chunk in chunks]
         if not texts:
             raise ValueError(
-                "No text chunks were extracted from this PDF. "
-                "The document may have no detectable Table of Contents or contain only images/scanned pages."
+                "No text could be extracted from this PDF. "
+                "The document appears to contain only images or scanned pages without selectable text."
             )
         embeddings = generate_embeddings(
             texts,
@@ -203,8 +208,8 @@ def ingest_document(
         )
         print(f"✅ Generated embeddings with shape: {embeddings.shape}")
 
-        # Validate (text-embedding-3-small with dimensions=384)
-        expected_dim = 384
+        # Validate (voyage-3-lite with dimensions=512)
+        expected_dim = 512
         passed, issues = validate_embeddings(embeddings, expected_dim=expected_dim)
         if not passed:
             print("⚠️  Validation warnings:", issues)
@@ -214,26 +219,29 @@ def ingest_document(
         print("STEP 6/6: INSERTING INTO DATABASE")
         print("=" * 80)
 
-        # Insert ToC nodes
-        print("📚 Inserting ToC nodes...")
-        toc_records = [{
-            "document_id": document_id,
-            "node_id": n["id"],
-            "title": n["title"],
-            "level": n["level"],
-            "page_start": n["page_start"],
-            "page_end": n["page_end"]
-        } for n in toc_flat]
+        # Insert ToC nodes (skipped in fallback mode — no real ToC nodes exist)
+        node_map = {}
+        if not fallback_mode:
+            print("📚 Inserting ToC nodes...")
+            toc_records = [{
+                "document_id": document_id,
+                "node_id": n["id"],
+                "title": n["title"],
+                "level": n["level"],
+                "page_start": n["page_start"],
+                "page_end": n["page_end"]
+            } for n in toc_flat]
 
-        supabase_client.table("toc_nodes").insert(toc_records).execute()
-        print(f"✅ Inserted {len(toc_records)} ToC nodes")
+            supabase_client.table("toc_nodes").insert(toc_records).execute()
+            print(f"✅ Inserted {len(toc_records)} ToC nodes")
 
-        # Get node_id -> db_id mapping
-        result = supabase_client.table("toc_nodes") \
-            .select("id, node_id") \
-            .eq("document_id", document_id) \
-            .execute()
-        node_map = {r["node_id"]: r["id"] for r in result.data}
+            result = supabase_client.table("toc_nodes") \
+                .select("id, node_id") \
+                .eq("document_id", document_id) \
+                .execute()
+            node_map = {r["node_id"]: r["id"] for r in result.data}
+        else:
+            print("⏭️  Skipping ToC node insertion (fallback mode)")
 
         # Insert chunks
         print(f"\n💾 Inserting {len(chunks)} chunks...")

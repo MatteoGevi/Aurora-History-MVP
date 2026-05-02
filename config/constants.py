@@ -38,7 +38,7 @@ def get_supabase_for_user(jwt_token: str):
 supabase = get_supabase()
 
 # Models
-EMBEDDING_MODEL = "text-embedding-3-small"
+EMBEDDING_MODEL = "voyage-3-lite"
 
 # Parameters
 TARGET_CHARS = 1000
@@ -56,3 +56,7 @@ OPENAI_MODEL_NAME = "gpt-4o-mini"
 # Anthropic / Claude
 CLAUDE_API_KEY = os.environ.get("CLAUDE_API_KEY")
 CLAUDE_MODEL_NAME = "claude-haiku-4-5"
+
+# Voyage LLM API
+VOYAGE_API_KEY = os.environ.get("VOYAGE_API_KEY")
+VOYAGE_MODEL_NAME = "voyage-3-lite"

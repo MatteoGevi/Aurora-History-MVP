@@ -107,7 +107,14 @@ if not st.session_state.authenticated:
                             st.session_state.current_page         = prev["page_num"]
                             st.session_state.page_input_widget    = prev["page_num"] + 1
                             if prev.get("node_id"):
-                                st.session_state.selected_section = {"node_id": prev["node_id"]}
+                                _node_res = st.session_state.supabase_client \
+                                    .table("toc_nodes") \
+                                    .select("*") \
+                                    .eq("document_id", prev["document_id"]) \
+                                    .eq("node_id", prev["node_id"]) \
+                                    .single() \
+                                    .execute()
+                                st.session_state.selected_section = _node_res.data or {"node_id": prev["node_id"]}
                                 saved = load_last_assessment(
                                     user_id=response.user.id,
                                     document_id=prev["document_id"],

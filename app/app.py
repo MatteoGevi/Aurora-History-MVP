@@ -439,7 +439,17 @@ if st.session_state.pdf_doc is not None:
                 if eval_data.get('criteria_scores'):
                     with st.expander("📋 Detailed Breakdown"):
                         for criterion in eval_data['criteria_scores']:
-                            st.markdown(f"**{criterion['id']}:** {criterion['score']}/2")
+                            s = criterion['score']
+                            if s >= 4:
+                                emoji = "🟢"
+                            elif s == 3:
+                                emoji = "🟡"
+                            elif s >= 1:
+                                emoji = "🟠"
+                            else:
+                                emoji = "🔴"
+                            title = criterion.get('title', criterion['id'])
+                            st.markdown(f"{emoji} **{title}: {s}/5**")
                             st.caption(criterion['feedback'])
 
                 if st.session_state.recalled_text:

@@ -5,32 +5,40 @@ from typing import Dict
 from src.retrieval import get_section_content
 from src.guardrailed_grader import grade_with_guardrails, Grade, MAX_SCORE, CRITERIA_BY_ID
 
-def _build_section_recall_prompt(context: str, call_llm) -> str:
-    """Generate a specific recall question from section content."""
-    resp = call_llm(
+def _prepare_grading_context(context: str, call_llm) -> tuple[str, str]:
+    """Return (question, key_concepts) from a single LLM call.
+
+    Falls back to a generic question and empty key_concepts if JSON parsing fails.
+    """
+    import json as _json
+
+    raw = call_llm(
         "You are an academic assessor.",
-        f"""Given this section content, write ONE specific recall question
-that covers the most important concepts. Be concrete and specific to this content.
-
-Content: {context[:1500]}
-
-Return ONLY the question, no preamble.""",
-    )
-    return resp.strip()
-
-
-def _extract_key_concepts(context: str, call_llm) -> str:
-    """Extract key concepts a complete recall answer should cover."""
-    resp = call_llm(
-        "You are an academic assessor.",
-        f"""Extract the 5-8 most important concepts, terms, or facts from this section
-that a student should mention in a thorough recall answer.
+        f"""Analyse this section content and return a JSON object with exactly two keys:
+- "question": ONE specific recall question covering the most important concepts (concrete, grounded in this content).
+- "key_concepts": a numbered list (as a single string) of the 5-8 most important concepts, terms, or facts a student should mention.
 
 Content: {context[:2000]}
 
-Return as a numbered list. Be specific. No preamble.""",
+Return ONLY the JSON object. No prose, no markdown.""",
     )
-    return resp.strip()
+    try:
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        data = _json.loads(raw.strip())
+        question = str(data.get("question", "")).strip()
+        key_concepts = str(data.get("key_concepts", "")).strip()
+        if not question:
+            raise ValueError("missing question key")
+        return question, key_concepts
+    except Exception:
+        return (
+            "Evaluate how well the student recalls the key concepts of this section.",
+            "",
+        )
 
 
 def _truncate_at_boundary(text: str, max_chars: int) -> str:
@@ -79,7 +87,7 @@ def _make_claude_adapter():
     from src.models import generate_chat_claude
 
     def call_llm(system: str, user: str) -> str:
-        return generate_chat_claude(system, user, max_tokens=1500, temperature=0.0)
+        return generate_chat_claude(system, user, max_tokens=2500, temperature=0.0)
 
     return call_llm
 
@@ -117,10 +125,15 @@ def run_section_recall(
     content = get_section_content(document_id, node_id, include_children=True, sb=sb)
     context_text = _truncate_at_boundary(content["text"], max_chars=5000)
 
+    if not context_text or len(context_text) < 50:
+        raise ValueError(
+            f"Section content is too short to grade (got {len(context_text)} chars). "
+            "Check that the section has been ingested correctly."
+        )
+
     call_llm = _make_claude_adapter()
 
-    recall_question = _build_section_recall_prompt(context_text, call_llm)
-    key_concepts    = _extract_key_concepts(context_text, call_llm)
+    recall_question, key_concepts = _prepare_grading_context(context_text, call_llm)
 
     grade: Grade = grade_with_guardrails(
         question=recall_question,
@@ -166,7 +179,7 @@ def run_evaluation(
 
     call_llm = _make_claude_adapter()
 
-    key_concepts = _extract_key_concepts(context_text, call_llm)
+    _, key_concepts = _prepare_grading_context(context_text, call_llm)
 
     grade: Grade = grade_with_guardrails(
         question=question,

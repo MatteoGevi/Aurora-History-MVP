@@ -1,7 +1,7 @@
 {
   "title": "Section Answer Assessment Rubric",
   "type": "analytic",
-  "total_score": 10,
+  "total_score": 25,
   "criteria": [
     {
       "id": "C1",
@@ -11,15 +11,27 @@
       "levels": [
         {
           "score": 0,
-          "description": "Many key facts are missing or incorrect."
+          "description": "No correct facts present; answer contains multiple factual errors or is entirely off-topic."
         },
         {
           "score": 1,
-          "description": "Some key facts are correct, but several omissions or minor errors."
+          "description": "One or two correct facts present; the large majority of key facts are missing or wrong."
         },
         {
           "score": 2,
-          "description": "All major key facts are correct (only minor errors if any)."
+          "description": "Several correct facts present but significant errors or omissions remain; fewer than half the key facts are accurate."
+        },
+        {
+          "score": 3,
+          "description": "Most key facts are correct with a few notable errors or omissions; roughly half to two-thirds of key facts are addressed accurately."
+        },
+        {
+          "score": 4,
+          "description": "All major facts are correct with at most one minor error or omission; no misleading statements."
+        },
+        {
+          "score": 5,
+          "description": "All key facts are correct, precise, and fully supported by the section; no errors, contradictions, or omissions."
         }
       ]
     },
@@ -31,15 +43,27 @@
       "levels": [
         {
           "score": 0,
-          "description": "Very limited scope; major areas of the section aren’t addressed."
+          "description": "Answer addresses none or only one peripheral topic from the section; the core content is entirely absent."
         },
         {
           "score": 1,
-          "description": "Partial coverage; some important parts of the section are missing."
+          "description": "Answer touches on 1–2 topics from the section but leaves most major areas completely unaddressed."
         },
         {
           "score": 2,
-          "description": "Comprehensive coverage of the section’s required scope."
+          "description": "Answer covers roughly half the section's main topics; several important parts are still missing."
+        },
+        {
+          "score": 3,
+          "description": "Answer covers the majority of the section's main topics with only minor gaps in secondary content."
+        },
+        {
+          "score": 4,
+          "description": "Answer addresses nearly all major topics in the section; only minor or peripheral details are missing."
+        },
+        {
+          "score": 5,
+          "description": "Answer comprehensively covers all major topics and relevant sub-topics of the section with no meaningful gaps."
         }
       ]
     },
@@ -51,15 +75,27 @@
       "levels": [
         {
           "score": 0,
-          "description": "Minimal or no use of relevant terminology or structure from the section."
+          "description": "No section-specific terms, definitions, or structural elements used; answer relies entirely on generic everyday language."
         },
         {
           "score": 1,
-          "description": "Some correct use of terminology/structure, but inconsistent or incomplete."
+          "description": "One or two section-specific terms appear but the answer is mostly described in vague or informal language."
         },
         {
           "score": 2,
-          "description": "Clear and consistent use of correct terms and structure from the section."
+          "description": "Some correct terminology present but used inconsistently or with incomplete or imprecise definitions."
+        },
+        {
+          "score": 3,
+          "description": "Most important terms are used correctly; minor gaps in precision or a small number of key terms are missed."
+        },
+        {
+          "score": 4,
+          "description": "All major terms and structural elements from the section are used correctly and precisely throughout."
+        },
+        {
+          "score": 5,
+          "description": "Complete, precise, and consistent use of all section-specific terminology and structural frameworks; definitions are exact."
         }
       ]
     },
@@ -71,15 +107,27 @@
       "levels": [
         {
           "score": 0,
-          "description": "Explanation is unclear or disorganized; mostly lists facts without structure."
+          "description": "No logical organisation; answer is a random list of keywords or fragments with no explanatory thread."
         },
         {
           "score": 1,
-          "description": "Some organization and explanation, but could be deeper or more coherent."
+          "description": "Minimal structure; answer attempts some explanation but reasoning is unclear or jumps between unrelated points."
         },
         {
           "score": 2,
-          "description": "Clear, well-organized explanation; facts embedded within coherent structure."
+          "description": "Some logical flow present but explanations are shallow; transitions between ideas are abrupt or missing."
+        },
+        {
+          "score": 3,
+          "description": "Generally well-organised with coherent explanations; a few transitions or elaborations could be clearer or deeper."
+        },
+        {
+          "score": 4,
+          "description": "Clear, logical structure throughout; ideas flow naturally and explanations are well-developed with smooth transitions."
+        },
+        {
+          "score": 5,
+          "description": "Exceptionally coherent; ideas are explained deeply, linked explicitly, and flow in a way that reflects true structural understanding."
         }
       ]
     },
@@ -91,23 +139,35 @@
       "levels": [
         {
           "score": 0,
-          "description": "Only restates definitions or facts verbatim; no explanation of mechanisms or connections between ideas."
+          "description": "Answer restates definitions or phrases verbatim; no explanation of mechanisms, causes, or relationships between ideas."
         },
         {
           "score": 1,
-          "description": "Shows some understanding beyond recall; partial explanation of why/how, or limited connection between concepts."
+          "description": "Shows minimal understanding beyond recall; one or two why/how points are mentioned but not developed or explained."
         },
         {
           "score": 2,
-          "description": "Demonstrates clear understanding: explains mechanisms, draws meaningful connections, or applies concepts beyond surface recall."
+          "description": "Some depth present; partial explanation of a mechanism or a limited connection between two concepts, but not sustained."
+        },
+        {
+          "score": 3,
+          "description": "Demonstrates solid understanding; explains key mechanisms and draws at least one meaningful connection between concepts in the section."
+        },
+        {
+          "score": 4,
+          "description": "Clear evidence of deep understanding; explains multiple mechanisms, connects ideas across the section, or applies a concept to a concrete example."
+        },
+        {
+          "score": 5,
+          "description": "Exceptional depth; independently synthesises ideas, identifies non-obvious connections, or applies concepts beyond what the section states explicitly."
         }
       ]
     }
   ],
   "interpretation": {
-    "9-10": "Mastery: Answer is accurate, full, well-explained, and clearly grounded in the section.",
-    "6-8": "Proficient: Good work with some minor gaps (coverage or explanation could improve).",
-    "0-5": "Needs Review: Significant omissions/errors, weak explanation, or lack of grounding in this section."
+    "23-25": "Mastery: Answer is accurate, comprehensive, well-explained, and clearly grounded in the section.",
+    "15-22": "Proficient: Good work with some gaps in coverage, precision, or depth that could be improved.",
+    "0-14": "Needs Review: Significant omissions or errors, weak explanation, or insufficient grounding in this section."
   },
   "feedback_meta": {
     "provide_per_criterion_feedback": true,

@@ -31,7 +31,7 @@ MAX_SCORE = sum(
 # ──────────────────────────────────────────────
 class CriterionScore(BaseModel):
     criterion_id: str = Field(..., description="e.g. C1, C2, ...")
-    score: int = Field(..., ge=0, le=2, description="0, 1, or 2 as defined in rubric levels")
+    score: int = Field(..., ge=0, le=5, description="0–5 as defined in rubric levels")
     feedback: str = Field(..., min_length=5, max_length=500)
 
     @field_validator("criterion_id")
@@ -80,10 +80,10 @@ class Grade(BaseModel):
     def interpretation(self) -> str:
         pct = self.percentage
         if pct >= 90:
-            return RUBRIC_DEF["interpretation"]["9-10"]
+            return RUBRIC_DEF["interpretation"]["23-25"]
         elif pct >= 60:
-            return RUBRIC_DEF["interpretation"]["6-8"]
-        return RUBRIC_DEF["interpretation"]["0-5"]
+            return RUBRIC_DEF["interpretation"]["15-22"]
+        return RUBRIC_DEF["interpretation"]["0-14"]
 
     def to_dict(self) -> dict:
         """Flat dict ready for Streamlit or JSON serialisation."""
@@ -100,7 +100,7 @@ class Grade(BaseModel):
                     "id": cs.criterion_id,
                     "title": CRITERIA_BY_ID[cs.criterion_id]["title"],
                     "score": cs.score,
-                    "max": 2,
+                    "max": 5,
                     "feedback": cs.feedback,
                 }
                 for cs in self.criteria_scores
@@ -127,7 +127,7 @@ def _build_schema_str() -> str:
                                 "type": "string",
                                 "enum": list(CRITERIA_BY_ID.keys()),
                             },
-                            "score": {"type": "integer", "minimum": 0, "maximum": 2},
+                            "score": {"type": "integer", "minimum": 0, "maximum": 5},
                             "feedback": {"type": "string"},
                         },
                         "required": ["criterion_id", "score", "feedback"],
@@ -150,7 +150,7 @@ SCHEMA_JSON_STR = _build_schema_str()
 # Prompts
 # ──────────────────────────────────────────────
 def _build_rubric_block() -> str:
-    lines = [f"RUBRIC (each criterion scored 0, 1, or 2 — total max {MAX_SCORE}):\n"]
+    lines = [f"RUBRIC (each criterion scored 0–5 — total max {MAX_SCORE}):\n"]
     for c in RUBRIC_DEF["criteria"]:
         lines.append(f"{c['id']}: {c['title']}")
         lines.append(f"  Description: {c['description']}")

@@ -1,29 +1,29 @@
-# ingest/embedding_import.py - Embedding utilities (OpenAI text-embedding-3-small)
+# ingest/embedding_import.py - Embedding utilities (Voyage AI voyage-3-lite)
 from typing import List, Tuple, Optional
 import numpy as np
-from openai import OpenAI
+import voyageai
 
-from config.constants import OPENAI_API_KEY
+from config.constants import VOYAGE_API_KEY
 
-_client: Optional[OpenAI] = None
+_client: Optional[voyageai.Client] = None
 
-def _get_client() -> OpenAI:
+def _get_client() -> voyageai.Client:
     global _client
     if _client is None:
-        _client = OpenAI(api_key=OPENAI_API_KEY)
+        _client = voyageai.Client(api_key=VOYAGE_API_KEY)
     return _client
 
 
 def generate_embeddings(
     texts: List[str],
-    model_name: str = "text-embedding-3-small",
-    dimensions: int = 384,
+    model_name: str = "voyage-3-lite",
+    dimensions: int = 512,
     batch_size: int = 64,
     normalize: bool = True,
     show_progress: bool = True,
-    **_kwargs,          # absorbs legacy args (e.g. old sentence-transformers params)
+    **_kwargs,
 ) -> np.ndarray:
-    """Generate embeddings via OpenAI API (text-embedding-3-small, 384-dim)."""
+    """Generate embeddings via Voyage AI API (voyage-3-lite, 512-dim)."""
     client = _get_client()
     all_embeddings = []
     total_batches = (len(texts) + batch_size - 1) // batch_size
@@ -32,9 +32,8 @@ def generate_embeddings(
         batch = texts[i : i + batch_size]
         if show_progress:
             print(f"⚙️  Embedding batch {i // batch_size + 1}/{total_batches} ({len(batch)} texts)...")
-        response = client.embeddings.create(input=batch, model=model_name, dimensions=dimensions)
-        batch_embeddings = [item.embedding for item in response.data]
-        all_embeddings.extend(batch_embeddings)
+        result = client.embed(batch, model=model_name, input_type="document")
+        all_embeddings.extend(result.embeddings)
 
     embeddings = np.array(all_embeddings, dtype=np.float32)
 

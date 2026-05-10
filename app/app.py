@@ -421,7 +421,11 @@ if st.session_state.pdf_doc is not None:
                             except anthropic.RateLimitError:
                                 st.error("Claude API rate limit hit. Wait a moment and try again.")
                             except ValueError as e:
-                                st.error(f"Grader failed to parse a valid response after retries: {e}")
+                                msg = str(e)
+                                if "too short to grade" in msg:
+                                    st.error(f"⚠️ {msg}")
+                                else:
+                                    st.error(f"Grader failed to parse a valid response after retries: {msg}")
                     else:
                         st.warning("Please write something before submitting")
             else:
